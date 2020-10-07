@@ -6,7 +6,7 @@
 	},
 	"autoload" : {
 		"psr-4" : {
-			"Mantonio84\\pymMagicBox" : "src/"
+			"Mantonio84\\pymMagicBox\\" : "src/"
 		}
 	},
 	"extra" : {
