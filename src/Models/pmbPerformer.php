@@ -28,11 +28,10 @@ class pmbPerformer extends pmbBase {
         }
         
 	public function getPmbLogData(): array {
-		$ret=["performer_id" => $this->getKey()];
-		if ($this->relationLoaded("method") && $this->method){
-			$ret["method_name"]=$this->method->name;
-		}
-		return $ret;
+		return [
+                    "performer_id" => $this->getKey(),
+                    "method_name" => optional($this->method)->name
+                ];
 	}
 	
 	public function getEngine($allPerformersIds=null){
