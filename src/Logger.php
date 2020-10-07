@@ -1,6 +1,9 @@
 <?php
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Models\pmbLog;
+use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
+use \Illuminate\Support\Str;
+use \Cache;
 
 class Logger {
 	
