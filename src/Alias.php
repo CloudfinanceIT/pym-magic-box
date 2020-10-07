@@ -4,25 +4,26 @@ use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Mantonio84\pymMagicBox\Models\pmbLog;
 
 class Alias extends BaseOnModel {
-		
+	
+        protected $modelClassName = pmbAlias::class;
 			
 	public function __construct(string $merchant_id, $ref){
 		$this->acceptMerchantId($merchant_id);
 		if ($ref instanceof pmbAlias){
 			$this->managed=$ref;
 		}else{
-			$this->managed=$this->findAliasOrFail($ref);
-		}		
-                
-		pmbLog::write("DEBUG", $this->merchant_id, ["re" => $ref, "al" => $this->managed, "pe" => $this->managed->performer, "message" => "Created a 'Alias' class"]);
+			$this->managed=$this->searchModelOrFail($ref);
+		}	
+                $this->performer=$this->managed->performer;
+		pmbLog::write("DEBUG", $this->merchant_id, ["re" => $ref, "al" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Alias' class"]);
 	}
 	
 	public function engine(){
-		return $this->getEngine($this->managed->performer);
+            return $this->performer->getEngine();
 	}
 	
 	public function method(){
-		return $this->managed->performer->method;
+            return $this->performer->method;
 	}
 	
 	public function delete(){
@@ -36,4 +37,15 @@ class Alias extends BaseOnModel {
 	protected function isWriteableAttribute(string $name, $value) : bool{
 		return ($name!="performer_id" && $name!="performer" && $name!="adata");
 	}
+   
+        protected function searchModel($ref) {
+            $q=pmbAlias::ofMerchant($this->merchant_id)->notExpired();
+            if (is_int($ref) || ctype_digit($ref)){
+                return $q->where("id",intval($ref))->first();
+            }else if (is_string($ref) && !empty($ref)){
+                return $q->where("name",$ref)->first();
+            }
+            return null;
+        }
+
 }

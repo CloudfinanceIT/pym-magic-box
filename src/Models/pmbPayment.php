@@ -4,7 +4,8 @@ namespace Mantonio84\pymMagicBox\Models;
 use \Illuminate\Database\Eloquent\Model;
 use \Mantonio84\pymMagicBox\Payment;
 
-class pmbPayment extends pmbBase {
+
+class pmbPayment extends pmbBaseWithPerformer  {
 		
 	protected $guarded=["id"];        
 	protected $casts=["amount" => "float", "billed_at" => "datetime", "confirmed_at" => "datetime", "refunded_at" => "datetime", "other_data" => "array"];
@@ -33,9 +34,7 @@ class pmbPayment extends pmbBase {
 		return new Payment($this->performer->merchant_id, $this);
 	}
 		
-	public function performer(){
-		return $this->belongsTo(pmbPerformer::class);
-	}
+	
 	
         public function alias(){
             return $this->belongsTo(pmbAlias::class);
@@ -76,16 +75,7 @@ class pmbPayment extends pmbBase {
 			return $query->whereNull("billed_at")->orWhereNull("confirmed_at");
 		})->whereNull("refunded_at");
 	}
-	
-	public function scopeOfPerformers($query, $v){
-		if (is_array($v)){
-			return $query->whereIn("performer_id",array_map("intval",$v));
-		}else if (is_int($v) || ctype_digit($v)){
-			return $query->where("performer_id",intval($v));
-		}
-		return $query;
-	}
-	
+
 	public function getBilledAttribute(){
 		return !is_null($this->billed_at);
 	}
@@ -113,5 +103,6 @@ class pmbPayment extends pmbBase {
 	public function getPmbLogData(): array {
 		return array_merge(["payment_id" => $this->getKey()] ,$this->only(["customer_id","order_ref","amount","performer_id"]));
 	}
-	
+
+
 }

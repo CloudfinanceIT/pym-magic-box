@@ -3,7 +3,7 @@ namespace Mantonio84\pymMagicBox\Models;
 use \Illuminate\Support\Str;
 
 
-class pmbPerformer extends pmbBase {
+class pmbPerformer extends pmbBase{
 		
 	protected $guarded=["id"];
 	
@@ -32,13 +32,13 @@ class pmbPerformer extends pmbBase {
                     "performer_id" => $this->getKey(),
                     "method_name" => optional($this->method)->name
                 ];
+		
 	}
 	
-	public function getEngine($allPerformersIds=null){
-		$cls=$this->method->engine_class_name;
-		if (!is_array($allPerformersIds)){
-			$allPerformersIds=static::merchant($this->merchant_id)->enabled()->pluck("id")->all();
-		}
-		return new $cls($this,$allPerformersIds);		
+	public function getEngine(){
+            $cls=$this->method->engine_class_name;		
+            return new $cls($this);		
 	}
+
+
 }

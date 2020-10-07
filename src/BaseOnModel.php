@@ -1,19 +1,35 @@
 <?php
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
+use \Illuminate\Database\Eloquent\ModelNotFoundException;
 
 abstract class BaseOnModel extends Base implements pmbLoggable {
-	protected $managed;
+        
+        protected $modelClassName = "";
 	
 	protected abstract function isReadableAttribute(string $name): bool;
 	protected abstract function isWriteableAttribute(string $name, $value): bool;
+        protected abstract function searchModel($ref);
+
 	
 	public static function find(string $merchant_id, $ref){
 		
 		return new static($merchant_id, is_scalar($ref) ? $ref : null);
 	}
-	
-	public function toBase(){
+        
+        protected function searchModelOrFail($ref){
+            $ret=$this->searchModel($ref);
+            if (!is_null($ret)){
+                return $ret;
+            }
+            
+            throw (new ModelNotFoundException)->setModel(
+                $this->modelClassName, $ref
+            );
+        }
+
+
+        public function toBase(){
 		return $this->managed;
 	}
 	

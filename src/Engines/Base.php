@@ -10,6 +10,7 @@ use \Mantonio84\pymMagicBox\Exceptions\paymentMethodInvalidOperationException;
 use \Carbon\Carbon;
 use \Illuminate\Support\Str;
 
+
 abstract class Base {
 	
 	public abstract function isRefundable(): bool;	
@@ -25,14 +26,14 @@ abstract class Base {
 	protected $allPerformersIds;
         protected $merchant_id;
 	
-	public function __construct(pmbPerformer $performer, array $allPerformersIds){
-		$this->performer=$performer;
-		$this->allPerformersIds=$allPerformersIds;
+	public function __construct(pmbPerformer $performer){
+		$this->performer=$performer;		
 		$bc=config("pymMagicBox.methods.".Str::snake($performer->method->name));
 		$this->config=array_merge(is_array($bc) ? $bc : [], is_array($performer->credentials) ? $performer->credentials : []);
                 $this->merchant_id=$this->performer->merchant_id;
 		pmbLog::write("DEBUG",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Payment engine '".class_basename($this)."' ready"]);
 	}	
+        
 			
 	public function aliasCreate(array $data, string $name, string $customer_id="", $expires_at=null){
 		if (!$this->supportsAliases()){
@@ -165,21 +166,28 @@ abstract class Base {
 	}
 	
 	protected function resolveNewPaymentModel($order_ref, $amount, $customer_id, pmbPerformer $performer){
+                $payment=new pmbPayment(compact("order_ref","amount", "customer_id"));
 		$unique=(config("pymMagicBox.unique_payments",true)===true);		
 		if ($unique){			
-			$found=null;
-			$list=pmbPayment::ofPerformers($this->allPerformersIds)->where("order_ref",$order_ref)->where("amount",$amount)->whereNotNull("order_ref")->get();			
-			if ($list->isNotEmpty()){
-				$found=$list->firstWhere("performer_id",$performer->getKey()) ?? $list->first();			
-			}
-			if ($found){
-				return $found;
-			}
-		}		
-		$payment=new pmbPayment(compact("order_ref","amount", "customer_id"));
+                    $found=null;
+                    $list=pmbPayment::ofPerformers($this->getAllPerformersIds())->where("order_ref",$order_ref)->where("amount",$amount)->whereNotNull("order_ref")->get();			
+                    if ($list->isNotEmpty()){
+                            $found=$list->firstWhere("performer_id",$performer->getKey()) ?? $list->first();			
+                    }
+                    if ($found){
+                        $payment=$found;
+                    }
+		}				
 		$payment->performer()->associate($performer);
 		return $payment;
 	}
+        
+        protected function getAllPerformersIds(){
+            if (is_null($this->allPerformersIds)){
+                $this->allPerformersIds= pmbPerformer::merchant($this->merchant_id)->enabled()->pluck("id")->unique()->all();
+            }
+            return $this->allPerformersIds;
+        }
 	
 	protected function sandbox(string $funName, array $args=[]){
 		try {
@@ -198,4 +206,6 @@ abstract class Base {
 		}
 		return null;
 	}
+        
+       
 }

@@ -4,22 +4,23 @@ use \Mantonio84\pymMagicBox\Engines\Base as AbstractEngine;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Mantonio84\pymMagicBox\Models\pmbLog;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
+use Mantonio84\pymMagicBox\Exceptions\aliasNotFoundException;
 use \Illuminate\Support\Str;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
 
-class Engine extends Base implements pmbLoggable{
+class Engine extends Base implements pmbLoggable {
 	
 	public $is_refundable=false;
-	public $supports_aliases=false;
-	protected $managed;	
+	public $supports_aliases=false;	
 	protected $signatures;
 	
 	public function __construct(string $merchant_id, AbstractEngine $managed){		
 		$this->acceptMerchantId($merchant_id);
 		$this->managed=$managed;
+                $this->performer=$this->managed->performer;
 		$this->is_refundable=$managed->isRefundable();
-		$this->supports_aliases=$managed->supportsAliases();
-		pmbLog::write("DEBUG", $this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine '".get_class($this)."'"]);
+		$this->supports_aliases=$managed->supportsAliases();                
+		pmbLog::write("DEBUG", $this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine wrapper for '".class_basename($managed)."'"]);
 	}
 	
 	public function getPmbLogData(): array{
@@ -27,6 +28,34 @@ class Engine extends Base implements pmbLoggable{
 			"performer_id" => $this->managed->performer->getKey(),
 			"method_name" => $this->managed->performer->method->name,
 		];
+	}
+        
+        public function pay(float $amount, array $other_data=[], string $customer_id="", string $order_ref=""){ 		
+		pmbLog::write("DEBUG",$this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
+		return $this->wrapPaymentModel($this->managed->pay($amount,null,$customer_id,$order_ref,$other_data));
+	}
+	
+	public function payWithAlias(float $amount, $alias_ref, array $other_data=[], string $order_ref=""){
+                if (is_scalar($alias_ref)){
+                    $alias=Alias::find($this->merchant_id,$alias_ref)->toBase();                   
+                }else if ($alias_ref instanceof pmbAlias){
+                    $alias=$alias_ref;
+                }else if ($alias_ref instanceof Alias){
+                    $alias=$alias_ref->toBase();
+                }
+                
+                if (is_null($alias)){
+                    $a=is_scalar($alias_ref) ? "Alias '".$alias_ref."'" : "Requested alias";
+                    throw new aliasNotFoundException($a." not found on performer #".$this->performer->getKey()."!");
+                }
+                    
+                if (!$alias->performer->is($this->performer)){                    
+                    throw new aliasNotFoundException("Alias '".$alias->name."' not valid on performer #".$this->performer->getKey()."!");
+                    $alias=null;
+                }
+            
+		pmbLog::write("DEBUG",$this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
+		return $this->wrapPaymentModel($this->managed->pay($amount,$alias,$alias->customer_id,$order_ref,$other_data));
 	}
 	
 	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null){
@@ -138,8 +167,17 @@ class Engine extends Base implements pmbLoggable{
 			}
 		}
 	}
+       
 	
-	protected static function array_is_associative(array $arr) {
+         protected function wrapPaymentModel($ret){
+            if ($ret instanceof pmbPayment){
+                return new Payment($this->merchant_id, $ret);
+            }
+            return $ret;
+	}
+
+        
+        protected static function array_is_associative(array $arr) {
 		$k = array_keys($arr);
 		$fk = reset($k);
 		if (!ctype_digit($fk) && !is_int($fk))
@@ -147,4 +185,6 @@ class Engine extends Base implements pmbLoggable{
 		$fk = intval($fk);                
 		return (range($fk, count($arr) - 1) != $k);
 	}
+        
+        
 }
