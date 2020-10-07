@@ -14,7 +14,8 @@ class pmbPayment extends pmbBaseWithPerformer  {
 	protected static function boot(){
 		parent::boot();
 		static::creating(function ($md){
-			if (empty($md->bb_code) && $md->method && ($md->method->auto === false || config("pymMagicBox.bb_code.only_manual",true)===false)){
+                    
+			if (empty($md->bb_code) && ($md->performer->method->auto === false || config("pymMagicBox.bb_code.only_manual",true)===false)){
 				$l=intval(config("pymMagicBox.bb_code.len",5));
 				if ($l<3 || $l>16) $l=5;
 				$md->bb_code=static::generateBBCode($l);
