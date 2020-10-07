@@ -1,0 +1,23 @@
+{
+	"name" : "mantonio84/pym-magic-box",
+	"description" : "Gateway di pagamento per Laravel con supporto metodi di pagamento multipli",
+	"require" : {
+		"php" : "^7.1.2"
+	},
+	"autoload" : {
+		"psr-4" : {
+			"Mantonio84\\pymMagicBox" : "src/"
+		}
+	},
+	"extra" : {
+		"laravel" : {
+			"providers" : [ "Mantonio84\\pymMagicBox\\pymMagicBoxServiceProvider" ],
+			"aliases" : {
+				"pymMagicBoxAlias" : "Mantonio84\\pymMagicBox\\Alias",
+				"pymMagicBoxGateway" : "Mantonio84\\pymMagicBox\\Gateway",
+				"pymMagicBoxPayment" : "Mantonio84\\pymMagicBox\\Payment",
+				"pymMagicBoxEngine" : "Mantonio84\\pymMagicBox\\Engine"
+			}
+		}
+	}
+}
