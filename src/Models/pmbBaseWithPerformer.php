@@ -20,9 +20,9 @@ abstract class pmbBaseWithPerformer extends pmbBase {
             return $query;
 	}
         
-        public function scopeOfMerchant($query, string $merchant_id){
+        public function scopeMerchant($query, string $merchant_id){
             return $query->whereHas("performer", function ($q) use ($merchant_id){
-               return $q->where("merchant_id",$merchant_id)->currentAppEnv();
+               return $q->where("merchant_id",$merchant_id)->enabled();
             });
         }
 }

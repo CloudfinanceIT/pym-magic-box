@@ -8,6 +8,10 @@ class Dummy extends Base {
     
     //TRANQUILLI: E' TUTTO FINTO!!!
     
+	protected function validateConfig(array $config): bool {
+		return true;
+	}
+	
     protected function onProcessAliasCreate(array $data, string $name = "", string $customer_id = "", $expires_at = null): array {
         return $data;
     }

@@ -1,7 +1,7 @@
 <?php
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
-use \Mantonio84\pymMagicBox\Models\pmbLog;
+use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 
 class Payment extends BaseOnModel {
 	
@@ -18,7 +18,7 @@ class Payment extends BaseOnModel {
 		}
                 $this->performer=$this->managed->performer;
 		$this->is_refundable=$this->engine()->isRefundable();		
-		pmbLog::write("DEBUG", $this->merchant_id, ["re" => $ref, "pe" => $this->performer, "message" => "Created a 'Payment' class"]);
+		pmbLogger::make()->write("DEBUG", $this->merchant_id, ["re" => $ref, "pe" => $this->performer, "message" => "Created a 'Payment' class"]);
 	}
 			
 	public function engine(){
@@ -65,7 +65,7 @@ class Payment extends BaseOnModel {
         if ($l<3 || $l>16) $l=5;
         $pattern='/^[ABCDEFGHJLMNPQRTUVWXYZ2346789]{'.$l.'}+$/';
 
-        $q=pmbPayment::ofMerchant($this->merchant_id);
+        $q=pmbPayment::merchant($this->merchant_id);
         if (is_int($ref) || ctype_digit($ref)){
                 return $q->where("id",intval($ref))->first();
         }else if (preg_match($pattern,$ref)>0){

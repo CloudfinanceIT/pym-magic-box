@@ -16,10 +16,8 @@ class PmbCreatePerformersTable extends Migration
         Schema::create('pmb_performers', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->timestamps();
-            $table->uuid("merchant_id")->index();
-            $table->string("app_env",30)->nullable()->index();
-            $table->integer("method_id")->unsigned();
-            $table->json("credentials")->nullable();
+            $table->uuid("merchant_id")->index();          
+            $table->integer("method_id")->unsigned();      
             $table->boolean("enabled")->default(true);			
             $table->foreign('method_id')->references('id')->on('pmb_methods')->onDelete('cascade');
             $table->unique(["merchant_id","method_id"]);

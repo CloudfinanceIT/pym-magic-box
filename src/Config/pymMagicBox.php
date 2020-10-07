@@ -1,6 +1,8 @@
 <?php 
 return [
-	"methods" => [], //Settaggi dei vari metodi di pagamento comuni a tutti merchant. Ogni chiave di questo array deve essere il nome di un metodo di pagamento (da tabell pmb_methods) in formato snake case
+	"profiles" => [ //Settaggi e credenziali dei vari engines. Sotto common.{method_name} vanno i settaggi comuni a tutti i merchant, sotto {merchant_id}.{method_name} vanno i settaggi per ogni specifici per un merchant-method. {method_name} è sempre snake case.
+		"common" => [], 
+	];	
 	"bb_code" => [
 		"len" => 5, //Lunghezza dei codici di verifica degli ordini (ex bb_code CF3). Min 3, Max 16
 		"only_manual" => true //I codici di verifica degli ordini devono essere generati solo per le metodologie di pagamento manuali?

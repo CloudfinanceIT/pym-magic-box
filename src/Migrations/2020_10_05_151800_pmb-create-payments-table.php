@@ -28,7 +28,7 @@ class PmbCreatePaymentsTable extends Migration
 			$table->json("other_data");
 			$table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');
                         $table->foreign("alias_id")->references('id')->on('pmb_aliases')->onDelete('set null')->onUpdate("cascade");
-                        $table->unique(["performer_id","order_ref"]);
+            
 			
         });
     }

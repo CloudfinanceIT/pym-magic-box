@@ -5,8 +5,8 @@ use \App\Http\Controllers\Controller;
 use \Illuminate\Http\Request;
 use \Mantonio84\pymMagicBox\Gateway;
 use \Illuminate\Support\Str;
-use \Mantonio84\pymMagicBox\Models\pmbLog;
 use \Mantonio84\pymMagicBox\Models\pmbMethod;
+use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 
 class pymListenController extends Controller
 {   
@@ -21,7 +21,7 @@ class pymListenController extends Controller
 		if (strlen($action)>1){
 			$action="listen".ucfirst(Str::camel($action));
 			if ($engine->canRun($action)){						
-                            pmbLog::write("INFO", $merchant, ["engine" => $engine, "message" => "Listen request for '$action'", "details" => json_encode($request->all())]);
+                            pmbLogger::make()->write("INFO", $merchant, ["engine" => $engine, "message" => "Listen request for '$action'", "details" => json_encode($request->all())]);
                             return $engine->run($action,["request" => $request]);
 			}
 		}

@@ -2,11 +2,12 @@
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Engines\Base as AbstractEngine;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
-use \Mantonio84\pymMagicBox\Models\pmbLog;
+use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use Mantonio84\pymMagicBox\Exceptions\aliasNotFoundException;
 use \Illuminate\Support\Str;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
+
 
 class Engine extends Base implements pmbLoggable {
 	
@@ -20,7 +21,7 @@ class Engine extends Base implements pmbLoggable {
                 $this->performer=$this->managed->performer;
 		$this->is_refundable=$managed->isRefundable();
 		$this->supports_aliases=$managed->supportsAliases();                
-		pmbLog::write("DEBUG", $this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine wrapper for '".class_basename($managed)."'"]);
+		pmbLogger::make()->write("DEBUG", $this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine wrapper for '".class_basename($managed)."'"]);
 	}
 	
 	public function getPmbLogData(): array{
@@ -31,7 +32,7 @@ class Engine extends Base implements pmbLoggable {
 	}
         
         public function pay(float $amount, array $other_data=[], string $customer_id="", string $order_ref=""){ 		
-		pmbLog::write("DEBUG",$this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
+		pmbLogger::make()->write("DEBUG",$this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
 		return $this->wrapPaymentModel($this->managed->pay($amount,null,$customer_id,$order_ref,$other_data));
 	}
 	
@@ -54,12 +55,12 @@ class Engine extends Base implements pmbLoggable {
                     $alias=null;
                 }
             
-		pmbLog::write("DEBUG",$this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
+		pmbLogger::make()->write("DEBUG",$this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
 		return $this->wrapPaymentModel($this->managed->pay($amount,$alias,$alias->customer_id,$order_ref,$other_data));
 	}
 	
 	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null){
-		pmbLog::write("DEBUG",$this->merchant_id,["message" => "createAnAlias request", "per" => $this->managed->performer]);
+		pmbLogger::make()->write("DEBUG",$this->merchant_id,["message" => "createAnAlias request", "per" => $this->managed->performer]);
 		return new Alias($this->merchant_id,$this->managed->aliasCreate($data, $name, $customer_id, $expires_at));		
 	}
 	
@@ -85,7 +86,7 @@ class Engine extends Base implements pmbLoggable {
 			try {
 				$ret=call_user_func_array([$this->managed,$method],$params);
 			}catch (\Exception $e) {
-				pmbLog::write("EMERGENCY",$this->merchant_id,array_merge($params,["per" => $this->managed->performer, "ex" => $e]));
+				pmbLogger::make()->write("EMERGENCY",$this->merchant_id,array_merge($params,["per" => $this->managed->performer, "ex" => $e]));
 				throw $e;
 				return null;
 			}

@@ -27,8 +27,7 @@ class PymMagicBoxDummyMethodSeeder extends Seeder
             "created_at" => $now,
             "updated_at" => $now,
             "merchant_id" => $merchant_id,
-            "method_id" => 1,
-            "app_env" => "local",
+            "method_id" => 1,            
             "enabled" => 1
         ]);
         $this->command->getOutput()->writeln("PymMagicBox dummy method created with merchant_id <info>$merchant_id</info>");

@@ -7,7 +7,7 @@ class pmbPerformer extends pmbBase{
 		
 	protected $guarded=["id"];
 	
-	protected $casts=["credentials" => "array", "enabled" => "boolean"];
+	protected $casts=["enabled" => "boolean"];
 	
 	public function scopeMerchant($query, string $merchant_id){
 		return $query->where("merchant_id",$merchant_id);
@@ -21,11 +21,6 @@ class pmbPerformer extends pmbBase{
 		return $this->belongsTo(pmbMethod::class);
 	}
 	
-        public function scopeCurrentAppEnv($query){
-            return $query->where(function ($q){
-               return $q->where("app_env",config("app.env"))->orWhereNull("app_env");
-            });
-        }
         
 	public function getPmbLogData(): array {
 		return [

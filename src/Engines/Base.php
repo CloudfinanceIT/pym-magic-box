@@ -4,9 +4,10 @@ use \Mantonio84\pymMagicBox\pmbMethod;
 use \Mantonio84\pymMagicBox\Models\pmbPerformer;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
-use \Mantonio84\pymMagicBox\Models\pmbLog;
+use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Exceptions\paymentMethodInvalidOperationException;
+use \Mantonio84\pymMagicBox\Exceptions\invalidMethodConfigException;
 use \Carbon\Carbon;
 use \Illuminate\Support\Str;
 
@@ -15,11 +16,12 @@ abstract class Base {
 	
 	public abstract function isRefundable(): bool;	
 	public abstract function supportsAliases(): bool;
+	protected abstract function validateConfig(array $config): bool;
 	protected abstract function onProcessPayment(pmbPayment $payment, $alias_data, array $data=[]): processPaymentResponse;
 	protected abstract function onProcessRefund(pmbPayment $payment, array $data=[]): bool;
 	protected abstract function onProcessConfirm(pmbPayment $payment, array $data=[]): bool;
 	protected abstract function onProcessAliasCreate(array $data, string $name="", string $customer_id="", $expires_at=null): array;	
-	protected abstract function onProcessAliasDelete(pmbAlias $alias): bool;
+	protected abstract function onProcessAliasDelete(pmbAlias $alias): bool;	
 	
 	public $performer;
 	protected $config;
@@ -28,10 +30,13 @@ abstract class Base {
 	
 	public function __construct(pmbPerformer $performer){
 		$this->performer=$performer;		
-		$bc=config("pymMagicBox.methods.".Str::snake($performer->method->name));
-		$this->config=array_merge(is_array($bc) ? $bc : [], is_array($performer->credentials) ? $performer->credentials : []);
-                $this->merchant_id=$this->performer->merchant_id;
-		pmbLog::write("DEBUG",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Payment engine '".class_basename($this)."' ready"]);
+		$this->merchant_id=$this->performer->merchant_id;
+		$snm=Str::snake($performer->method->name);				
+		$this->config=array_merge($this->onlyIfIsArray(config("pymMagicBox.profiles.common.".$snm)),$this->onlyIfIsArray(config("pymMagicBox.profiles.".$this->merchant_id.".".$snm)));
+		if (!$this->validateConfig($this->config)){
+			throw new \invalidMethodConfigException("Invalid config for method key '$snm'!");
+		}        
+		pmbLogger::make()->write("DEBUG",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Payment engine '".class_basename($this)."' ready"]);
 	}	
         
 			
@@ -41,7 +46,7 @@ abstract class Base {
 		}
 		$ret=$this->sandbox("onProcessAliasCreate",[$data, $name, $customer_id, $expires_at]);
 		if (empty($ret)){
-			pmbLog::write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias creation falied!", "details" => json_encode($data)]);
+			pmbLogger::make()->write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias creation falied!", "details" => json_encode($data)]);
 			return null;
 		}
 		$a=new pmbAlias([
@@ -53,7 +58,7 @@ abstract class Base {
 		$a->performer()->associate($this->performer);
 		$a->save();		
                 
-		pmbLog::write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "al" => $a, "message" => "Alias created successfully!", "details" => json_encode(["input" => $data, "output" => $ret])]);
+		pmbLogger::make()->write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "al" => $a, "message" => "Alias created successfully!", "details" => json_encode(["input" => $data, "output" => $ret])]);
 		return $a;
 	}
 	
@@ -63,10 +68,10 @@ abstract class Base {
 		}
 		$ret=$this->sandbox("onProcessAliasDelete",[$alias]);
 		if ($ret){
-			pmbLog::write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias deleted successfully!", "al" => $alias]);
+			pmbLogger::make()->write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias deleted successfully!", "al" => $alias]);
 			$alias->delete();
 		}else{
-			pmbLog::write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias delete error!", "al" => $alias]);
+			pmbLogger::make()->write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias delete error!", "al" => $alias]);
 		}
 		return $ret;
 	}
@@ -85,7 +90,7 @@ abstract class Base {
 					if (!$payment->exists){
 						$payment->save();		
 					}	
-					pmbLog::write("ALERT",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Charging with alias not supported!"]));
+					pmbLogger::make()->write("ALERT",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Charging with alias not supported!"]));
 					return $payment;
 				}
 			}
@@ -97,10 +102,10 @@ abstract class Base {
 				}
 				$payment->save();
 				if ($process->billed){					
-					pmbLog::write("INFO",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Successfully charged"]));
+					pmbLogger::make()->write("INFO",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Successfully charged"]));
 					event(new \Mantonio84\pymMagicBox\Events\Payment\Billed($this->merchant_id,$payment));
 				}else{
-					pmbLog::write("WARNING",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged"]));
+					pmbLogger::make()->write("WARNING",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged"]));
 					event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"billed"));
 				}			
 				return $payment;
@@ -108,11 +113,11 @@ abstract class Base {
 				if (!$payment->exists){
 					$payment->save();		
 				}				
-				pmbLog::write("WARNING",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged", "details" => json_encode($process)]));
+				pmbLogger::make()->write("WARNING",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged", "details" => json_encode($process)]));
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"billed"));				
 			}			
 		}else{
-			pmbLog::write("NOTICE",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Already charged: skipped"]));
+			pmbLogger::make()->write("NOTICE",$this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Already charged: skipped"]));
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"already-charged"));
 		}
 		return $payment;
@@ -129,14 +134,14 @@ abstract class Base {
 			if ($success){
 				$payment->confirmed=true;	
 				$payment->save();
-				pmbLog::write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully confirmed"]);
+				pmbLogger::make()->write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully confirmed"]);
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Confirmed($this->merchant_id,$payment));
 			}else{
-				pmbLog::write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully confirmed"]);
+				pmbLogger::make()->write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully confirmed"]);
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirmed"));
 			}
 		}else{
-			pmbLog::write("NOTICE",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for confirmation: skipped", "details" => json_encode($payment->only(["billed","confirmed","refunded"]))]);
+			pmbLogger::make()->write("NOTICE",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for confirmation: skipped", "details" => json_encode($payment->only(["billed","confirmed","refunded"]))]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirm-unsuitable"));
 		}
 		return $payment;
@@ -152,14 +157,14 @@ abstract class Base {
 			if ($success){
 				$payment->refunded=true;		
 				$payment->save();
-				pmbLog::write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded"]);
+				pmbLogger::make()->write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded"]);
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment));
 			}else{
-				pmbLog::write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully refunded"]);
+				pmbLogger::make()->write("WARNING",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully refunded"]);
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refunded"));
 			}
 		}else{
-			pmbLog::write("NOTICE",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for refund: skipped", "details" => json_encode($payment->only(["billed","confirmed","refunded"]))]);
+			pmbLogger::make()->write("NOTICE",$this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for refund: skipped", "details" => json_encode($payment->only(["billed","confirmed","refunded"]))]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refund-unsuitable"));
 		}
 		return $payment;
@@ -184,7 +189,7 @@ abstract class Base {
         
         protected function getAllPerformersIds(){
             if (is_null($this->allPerformersIds)){
-                $this->allPerformersIds= pmbPerformer::merchant($this->merchant_id)->enabled()->pluck("id")->unique()->all();
+                $this->allPerformersIds=pmbPerformer::merchant($this->merchant_id)->enabled()->pluck("id")->unique()->all();
             }
             return $this->allPerformersIds;
         }
@@ -193,7 +198,7 @@ abstract class Base {
 		try {
 			$result=$this->{$funName}(...$args);
 		}catch (\Exception $e) {
-			pmbLog::write("EMERGENCY",$this->performer->merchant_id,array_merge($args,["performer" => $this->performer, "ex" => $e]));
+			pmbLogger::make()->write("EMERGENCY",$this->performer->merchant_id,array_merge($args,["performer" => $this->performer, "ex" => $e]));
 			throw $e;
 			return null;
 		}
@@ -207,5 +212,7 @@ abstract class Base {
 		return null;
 	}
         
-       
+    private function onlyIfIsArray($v,array $default=[]){
+		return (is_array($v)) ? $v : $default;
+	}
 }
