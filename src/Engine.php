@@ -104,23 +104,6 @@ class Engine extends Base implements pmbLoggable {
 		return array_key_exists($method,$this->signatures);
 	}
 	
-	public function findSomethingOfThisMagicBox($n,$v=null,bool $fail=true){
-		if (is_array($n)){
-			$ret=array();
-			foreach ($n as $k => $vv){
-				$ret[$k]=$this->findSomethingOfThisMagicBox($k,$vv,$fail);
-			}
-			return $ret;
-		}
-		$finderFun="find".ucfirst(Str::camel($n));
-		if ($fail){
-			$finderFun.="OrFail";
-		}
-		if (method_exists($this,$finderFun)){
-			return call_user_func([$this,$finderFun],$v) ?? $v;
-		}
-		return $v;
-	}
 	
 	protected function extractArgument(array &$arguments, $rp, $method){
 		$n=$rp->getName();

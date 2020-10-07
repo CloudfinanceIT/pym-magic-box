@@ -11,6 +11,7 @@ class Gateway extends Base {
     public static function of(string $merchant_id){
 	return new static($merchant_id);
     }
+    
 	
     public function __construct(string $merchant_id){
 	$this->acceptMerchantId($merchant_id);
@@ -21,7 +22,7 @@ class Gateway extends Base {
     }
         
     public function build($name){
-        if (!isset($this->engines[$name])){
+        if (!array_key_exists($name, $this->engines)){
             $this->engines[$name]=null;
             $performers=pmbPerformer::with("method")->merchant($this->merchant_id)->currentAppEnv()->get();
             foreach ($performers as $per){
@@ -34,4 +35,5 @@ class Gateway extends Base {
         }        
         return $this->engines[$name];
     }
+        
 }   
