@@ -1,7 +1,7 @@
 <?php
 namespace Mantonio84\pymMagicBox\Events\Payment;
-namespace Mantonio84\pymMagicBox\Models\pmbPayment;
-use Mantonio84\pymMagicBox\Payment;
+
+use Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Illuminate\Support\Arr;
 
 abstract class Base {

@@ -1,6 +1,7 @@
 <?php
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
+use \Mantonio84\pymMagicBox\Models\pmbLog;
 
 class Alias extends BaseOnModel {
 		
@@ -12,7 +13,8 @@ class Alias extends BaseOnModel {
 		}else{
 			$this->managed=$this->findAliasOrFail($ref);
 		}		
-		pmbLog::write("DEBUG", $this->merchant_id, ["re" => $ref, "message" => "Created a 'Alias' class"]);
+                
+		pmbLog::write("DEBUG", $this->merchant_id, ["re" => $ref, "al" => $this->managed, "pe" => $this->managed->performer, "message" => "Created a 'Alias' class"]);
 	}
 	
 	public function engine(){
@@ -27,11 +29,11 @@ class Alias extends BaseOnModel {
 		return $this->engine()->aliasDelete($this->managed);
 	}
 	
-	protected function isReadableAttribute(string $name){
+	protected function isReadableAttribute(string $name) : bool{
 		return true;
 	}
 	
-	protected function isWriteableAttribute(string $name, $value){
+	protected function isWriteableAttribute(string $name, $value) : bool{
 		return ($name!="performer_id" && $name!="performer" && $name!="adata");
 	}
 }

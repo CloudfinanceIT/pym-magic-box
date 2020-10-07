@@ -1,6 +1,8 @@
 <?php
 namespace Mantonio84\pymMagicBox\Engines;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
+use \Mantonio84\pymMagicBox\Models\pmbPayment;
+use \Mantonio84\pymMagicBox\Models\pmbAlias;
 
 class Dummy extends Base {
     
@@ -10,23 +12,23 @@ class Dummy extends Base {
         return $data;
     }
 
-    protected function onProcessAliasDelete(\Mantonio84\pymMagicBox\pmbAlias $alias): bool {
+    protected function onProcessAliasDelete(pmbAlias $alias): bool {
         return true;
     }
 
-    protected function onProcessConfirm(\Mantonio84\pymMagicBox\pmbPayment $payment, array $data = array()): bool {
+    protected function onProcessConfirm(pmbPayment $payment, array $data = array()): bool {
         return true;
     }
 
-    protected function onProcessPayment(\Mantonio84\pymMagicBox\pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {
+    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {
         return new processPaymentResponse([
             "billed" => true,
             "confirmed" => true,            
             "other_data" => ["seed" => uniqid()],
         ]);
     }
-
-    protected function onProcessRefund(\Mantonio84\pymMagicBox\pmbPayment $payment, array $data = array()): bool {
+    
+    protected function onProcessRefund(pmbPayment $payment, array $data = array()): bool {
         return true;
     }
 

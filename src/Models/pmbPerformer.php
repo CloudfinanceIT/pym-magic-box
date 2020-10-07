@@ -18,9 +18,15 @@ class pmbPerformer extends pmbBase {
 	}
 	
 	public function method(){
-		return $this->belongsTo(Method::class);
+		return $this->belongsTo(pmbMethod::class);
 	}
 	
+        public function scopeCurrentAppEnv($query){
+            return $query->where(function ($q){
+               return $q->where("app_env",config("app.env"))->orWhereNull("app_env");
+            });
+        }
+        
 	public function getPmbLogData(): array {
 		$ret=["performer_id" => $this->getKey()];
 		if ($this->relationLoaded("method") && $this->method){

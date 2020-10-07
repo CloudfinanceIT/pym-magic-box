@@ -6,7 +6,7 @@ use \Mantonio84\pymMagicBox\Payment;
 
 class pmbPayment extends pmbBase {
 		
-	protected $guarded=["id"];
+	protected $guarded=["id"];        
 	protected $casts=["amount" => "float", "billed_at" => "datetime", "confirmed_at" => "datetime", "refunded_at" => "datetime", "other_data" => "array"];
 	protected $appends=["billed","confirmed","refunded"];
 	
@@ -37,6 +37,10 @@ class pmbPayment extends pmbBase {
 		return $this->belongsTo(pmbPerformer::class);
 	}
 	
+        public function alias(){
+            return $this->belongsTo(pmbAlias::class);
+        }
+        
 	public function scopeMerchant($query, string $merchant_id){
 		return $query->whereHas("performer",function ($q) use ($merchant_id){
 			return $q->where("merchant_id",$merchant_id);
@@ -86,7 +90,7 @@ class pmbPayment extends pmbBase {
 		return !is_null($this->billed_at);
 	}
 	
-	public function setBilledAttribute(bool $value){
+	public function setBilledAttribute(bool $value){            
 		$this->billed_at = $value ? now() : null;
 	}
 	
@@ -107,7 +111,7 @@ class pmbPayment extends pmbBase {
 	}
 	
 	public function getPmbLogData(): array {
-		return $this->only(["customer_id","order_ref","amount","performer_id"]);
+		return array_merge(["payment_id" => $this->getKey()] ,$this->only(["customer_id","order_ref","amount","performer_id"]));
 	}
 	
 }

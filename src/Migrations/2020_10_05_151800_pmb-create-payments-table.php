@@ -24,8 +24,11 @@ class PmbCreatePaymentsTable extends Migration
 			$table->dateTime("confirmed_at")->nullable();
 			$table->dateTime("refunded_at")->nullable();
 			$table->unsignedBigInteger("performer_id");
+                        $table->unsignedInteger("alias_id")->nullable();
 			$table->json("other_data");
 			$table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');
+                        $table->foreign("alias_id")->references('id')->on('pmb_aliases')->onDelete('set null')->onUpdate("cascade");
+                        $table->unique(["performer_id","order_ref"]);
 			
         });
     }
@@ -37,6 +40,6 @@ class PmbCreatePaymentsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('pmb_orders');
+        Schema::dropIfExists('pmb_payments');
     }
 }

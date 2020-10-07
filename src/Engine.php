@@ -19,7 +19,7 @@ class Engine extends Base implements pmbLoggable{
 		$this->managed=$managed;
 		$this->is_refundable=$managed->isRefundable();
 		$this->supports_aliases=$managed->supportsAliases();
-		pmbLog::write("DEBUG", $this->merchant_id, ["message" => "Created engine '".get_class($this)."'"]);
+		pmbLog::write("DEBUG", $this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine '".get_class($this)."'"]);
 	}
 	
 	public function getPmbLogData(): array{
@@ -31,7 +31,7 @@ class Engine extends Base implements pmbLoggable{
 	
 	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null){
 		pmbLog::write("DEBUG",$this->merchant_id,["message" => "createAnAlias request", "per" => $this->managed->performer]);
-		return new Alias($this->managed->aliasCreate($data, $name, $customer_id, $expires_at));		
+		return new Alias($this->merchant_id,$this->managed->aliasCreate($data, $name, $customer_id, $expires_at));		
 	}
 	
 	public function toBase(){
@@ -102,6 +102,7 @@ class Engine extends Base implements pmbLoggable{
 				throw new \RuntimeException("Missing parameter '$n' for ".class_basename($this->managed).":::".$method."()");
 			}
 		}else{
+
 			if (static::array_is_associative($arguments)){
 				if (array_key_exists($n,$arguments)){
 					$v=$arguments[$n];
@@ -127,7 +128,7 @@ class Engine extends Base implements pmbLoggable{
 			$this->signatures=array();
 			$reflector=new \ReflectionClass($this->managed);
 			$methods=$reflector->getMethods();
-			foreach ($method as $mt){
+			foreach ($methods as $mt){
 				if ($mt->isPublic() && !$mt->isStatic() && !$mt->isConstructor() && !$mt->isDestructor() && !$mt->isAbstract()){
 					$n=$mt->getName();
 					if (!in_array($n,["isRefundable","supportsAliases","pay","confirm","refund","aliasCreate","aliasDelete"])){
@@ -141,9 +142,9 @@ class Engine extends Base implements pmbLoggable{
 	protected static function array_is_associative(array $arr) {
 		$k = array_keys($arr);
 		$fk = reset($k);
-		if (!ctype_digit($fk))
+		if (!ctype_digit($fk) && !is_int($fk))
 			return true;
-		$fk = intval($fk);
+		$fk = intval($fk);                
 		return (range($fk, count($arr) - 1) != $k);
 	}
 }

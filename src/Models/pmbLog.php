@@ -9,19 +9,20 @@ class pmbLog extends Model {
 		
 	protected $guarded=["id"];
 	
-	protected static $levels=[
-		7 => "EMERGENCY", 
-		6 => "ALERT", 
-		5 => "CRITICAL", 
-		4 => "ERROR", 
-		3 => "WARNING", 
-		2 => "NOTICE", 
-		1 => "INFO", 
-		0 => "DEBUG"
+        protected static $levels=[
+		"DEBUG",
+                "INFO",
+                "NOTICE",
+                "WARNING",
+                "ERROR",
+                "CRITICAL",
+                "ALERT",
+                "EMERGENCY"
 	];
 	
 	public static function write($level, string $merchant_id, array $params=[]){		
 		$ml=config("pymMagicBox.min_log_level",false);		
+                
 		if ($ml===false){
 			return null;
 		}
@@ -51,14 +52,15 @@ class pmbLog extends Model {
 		$attributes=array_intersect_key($params,array_flip(["method_name", "alias_id", "performer_id", "payment_id", "amount", "customer_id", "order_ref", "message", "details"]));		
 		foreach ($params as $md){
 			if ($md instanceof pmbLoggable){
-				$attributes=array_merge(array_filter($pmbBase->getPmbLogData()),$attributes);
+				$attributes=array_merge(array_filter($md->getPmbLogData()),$attributes);
 			}else if ($md instanceof \Exception){
 				$attributes=array_merge(["message" => class_basename($e)." ::: ".$e->getMessage(), "details" => $e->getTraceAsString()],$attributes);
 			}
 		}
-		$attributes=array_filter("is_scalar",$attributes);
+		$attributes=array_filter($attributes,"is_scalar");
 		$attributes['level']=$level;
 		$attributes['merchant_id']=$merchant_id;
+                $attributes['session_id']=session()->getId();
 		if (isset($attributes['message'])){
 			$attributes['message']=\Str::limit($attributes['message'],255);
 		}		

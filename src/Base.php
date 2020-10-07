@@ -133,7 +133,7 @@ abstract class Base  {
 	}
 	
 	protected function performersLoaderQuery($merchant_id){
-		return pmbPerformer::with("method")->merchant($merchant_id)->enabled();
+		return pmbPerformer::with("method")->currentAppEnv()->merchant($merchant_id)->enabled();
 	}
 	
 	protected function wrapPaymentModel($ret){

@@ -23,11 +23,15 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
 		
 		$this->publishes([
                     __DIR__.'/Config/pymMagicBox.php' => config_path('pymMagicBox.php'),                    
-		], 'config');
+		], 'mantonio84-pymmagicbox-config');
                 
                 $this->publishes([
                    __DIR__.'/Config/routes.php' => $rpath,                    
-		], 'routes');
+		], 'mantonio84-pymmagicbox-routes');
+                
+                $this->publishes([
+                   __DIR__.'/Seeders/PymMagicBoxDummyMethodSeeder.php' => database_path("seeders/PymMagicBoxDummyMethodSeeder.php"),                    
+		], 'mantonio84-pymmagicbox-devdummyseeder');
     }
 
     /**

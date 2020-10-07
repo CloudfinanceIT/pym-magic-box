@@ -14,6 +14,6 @@ class pmbMethod extends pmbBase {
 	}
 	
 	public function getEngineClassNameAttribute(){		
-		return Str::start("\Mantonio84\pymMagicBox\Engines\\",$this->engine);		
+		return Str::start($this->engine,"\Mantonio84\pymMagicBox\Engines\\");		
 	}
 }

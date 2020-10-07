@@ -6,7 +6,7 @@ abstract class BaseOnModel extends Base implements pmbLoggable {
 	protected $managed;
 	
 	protected abstract function isReadableAttribute(string $name): bool;
-	protected abstract function isWriteableAttribute(string $name): bool;
+	protected abstract function isWriteableAttribute(string $name, $value): bool;
 	
 	public static function find(string $merchant_id, $ref){
 		

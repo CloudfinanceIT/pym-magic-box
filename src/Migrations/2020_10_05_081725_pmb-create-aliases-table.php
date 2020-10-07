@@ -22,6 +22,7 @@ class PmbCreateAliasesTable extends Migration
 			$table->json("adata")->nullable();
 			$table->unsignedBigInteger("performer_id");
 			$table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');		
+                        $table->unique(["performer_id","name"]);
         });
     }
 

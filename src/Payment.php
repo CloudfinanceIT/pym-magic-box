@@ -15,7 +15,7 @@ class Payment extends BaseOnModel {
 			$this->managed=$this->findPaymentOrFail($ref);
 		}
 		$this->is_refundable=$this->engine()->isRefundable();		
-		pmbLog::write("DEBUG", $this->merchant_id, ["re" => $ref, "message" => "Created a 'Payment' class"]);
+		pmbLog::write("DEBUG", $this->merchant_id, ["re" => $ref, "pe" => $this->managed->performer, "message" => "Created a 'Payment' class"]);
 	}
 			
 	public function engine(){
@@ -25,20 +25,31 @@ class Payment extends BaseOnModel {
 	public function method(){
 		return $this->managed->performer->method;
 	}
+        
+        public function alias(){
+            return $this->managed->alias;
+        }
 			
 	public function confirm(array $other_data=[]){
-		return $this->engine->confirm($this->managed,$other_data);
+		return $this->wrapPaymentModel($this->engine()->confirm($this->managed,$other_data));
 	}
 	
 	public function refund(array $other_data=[]){
-		return $this->engine->refund($this->managed,$other_data);
+		return  $this->wrapPaymentModel($this->engine()->refund($this->managed,$other_data));
 	}
 	
-	protected function isReadableAttribute(string $name){
+	protected function isReadableAttribute(string $name) : bool{
 		return true;
 	}
 	
-	protected function isWriteableAttribute(string $name, $value){
+	protected function isWriteableAttribute(string $name, $value) : bool{
 		return false;
+	}
+        
+        protected function wrapPaymentModel($ret){
+            if ($ret instanceof pmbPayment){
+                $this->managed=$ret;                
+            }
+            return $this;
 	}
 }

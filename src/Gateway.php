@@ -1,7 +1,7 @@
 <?php
 namespace Mantonio84\pymMagicBox;
-use \Mantonio84\pymMagicBox\pmbLog;
-use \Mantonio84\pymMagicBox\pmbPayment;
+use \Mantonio84\pymMagicBox\Models\pmbLog;
+use \Mantonio84\pymMagicBox\Models\pmbPayment;
 
 class Gateway extends Base {
 	
@@ -35,7 +35,7 @@ class Gateway extends Base {
 		}
 		if (is_array($finder)){
 			if (isset($finder['method'])){
-				$performer=$this->findMethod($finder['method']);
+				$performer=$this->findMethodPerformer($finder['method']);
 			}
 			if (isset($finder['alias']) && is_null($performer)){
 				$performer=$this->findAlias($finder['alias'])->performer;

@@ -3,8 +3,7 @@ namespace Mantonio84\pymMagicBox\Models;
 use \Mantonio84\pymMagicBox\Alias;
 
 class pmbAlias extends pmbBase {
-	public $incrementing = false;
-	protected $keyType = 'string';
+	
 	
 	protected $guarded=["id"];
 	protected $casts=["expires_at" => "datetime", "adata" => "array"];
@@ -37,6 +36,7 @@ class pmbAlias extends pmbBase {
 	}
 	
 	public function getPmbLogData(): array {
+            
 		return array_merge($this->only(["performer_id","customer_id"]),["alias_id" => $this->getKey()]);
 	}
 	

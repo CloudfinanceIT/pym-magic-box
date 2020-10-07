@@ -1,10 +1,10 @@
 <?php
 namespace Mantonio84\pymMagicBox\Engines;
 use \Mantonio84\pymMagicBox\pmbMethod;
-use \Mantonio84\pymMagicBox\pmbPerformer;
-use \Mantonio84\pymMagicBox\pmbPayment;
-use \Mantonio84\pymMagicBox\pmbLog;
-use \Mantonio84\pymMagicBox\pmbAlias;
+use \Mantonio84\pymMagicBox\Models\pmbPerformer;
+use \Mantonio84\pymMagicBox\Models\pmbPayment;
+use \Mantonio84\pymMagicBox\Models\pmbAlias;
+use \Mantonio84\pymMagicBox\Models\pmbLog;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Exceptions\paymentMethodInvalidOperationException;
 use \Carbon\Carbon;
@@ -23,13 +23,15 @@ abstract class Base {
 	public $performer;
 	protected $config;
 	protected $allPerformersIds;
+        protected $merchant_id;
 	
 	public function __construct(pmbPerformer $performer, array $allPerformersIds){
 		$this->performer=$performer;
 		$this->allPerformersIds=$allPerformersIds;
 		$bc=config("pymMagicBox.methods.".Str::snake($performer->method->name));
-		$this->config=array_merge(is_array($bc) ? $bc : [], $performer->credentials);
-		pmbLog::write("DEBUG",$this->performer->merchant_id,["message" => "Payment engine '".class_basename($this)."' ready", "details" => json_encode($performer)]);
+		$this->config=array_merge(is_array($bc) ? $bc : [], is_array($performer->credentials) ? $performer->credentials : []);
+                $this->merchant_id=$this->performer->merchant_id;
+		pmbLog::write("DEBUG",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Payment engine '".class_basename($this)."' ready"]);
 	}	
 			
 	public function aliasCreate(array $data, string $name, string $customer_id="", $expires_at=null){
@@ -49,7 +51,8 @@ abstract class Base {
 		]);
 		$a->performer()->associate($this->performer);
 		$a->save();		
-		pmbLog::write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias created successfully!", "details" => json_encode(["input" => $data, "output" => $ret])]);
+                
+		pmbLog::write("INFO",$this->performer->merchant_id,["pe" => $this->performer, "al" => $a, "message" => "Alias created successfully!", "details" => json_encode(["input" => $data, "output" => $ret])]);
 		return $a;
 	}
 	
@@ -73,7 +76,8 @@ abstract class Base {
 		$payment=$this->resolveNewPaymentModel($order_ref,$amount,$customer_id,$this->performer);		
 		if (!$payment->billed){
 			$adata=null;
-			if ($alias instanceof $alias){
+			if ($alias instanceof pmbAlias){
+                            $payment->alias()->associate($alias);
 				if ($this->supportsAliases()){
 					$adata=$alias->adata;
 				}else{
@@ -86,7 +90,7 @@ abstract class Base {
 			}
 			$process=$this->sandbox("onProcessPayment",[$payment,$adata,$data]);
 			if ($process instanceof processPaymentResponse){
-				$payment->fill($process->toArray());			
+				$payment->forceFill($process->toArray());			
 				if ($this->performer->method->auto && $process->billed){
 					$payment->confirmed=true;
 				}

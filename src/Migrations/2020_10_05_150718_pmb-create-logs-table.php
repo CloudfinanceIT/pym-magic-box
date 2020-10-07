@@ -18,7 +18,7 @@ class PmbCreateLogsTable extends Migration
             $table->timestamps();
 			$table->uuid("merchant_id")->index();		
 			$table->tinyInteger("level")->unsigned()->default(0)->index(); //["EMERGENCY", "ALERT", "CRITICAL", "ERROR", "WARNING", "NOTICE", "INFO", "DEBUG"]			
-			
+			$table->string("session_id",50)->nullable();
 			$table->string("method_name",80)->nullable()->index();
 			$table->unsignedBigInteger("performer_id")->nullable()->index();		
 			$table->unsignedBigInteger("payment_id")->nullable()->index();		
