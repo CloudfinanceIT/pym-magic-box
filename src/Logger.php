@@ -27,13 +27,15 @@ class Logger {
 		return static::$singleton;
 	}
 	
-	public function __call($name, $arguments){		
-		$level=array_search(strtoupper($name),static::$levels);
+	public static function __callStatic($name, $arguments){		
 		$c=count($arguments);
-		if ($level!==false && $c>=1 && $c<=2){
-			array_unshift($arguments, $level);
-			return $this->write(...$arguments);
-		}		
+		if (ctype_lower($name) && $c>=1 && $c<=2){
+			$level=array_search(strtoupper($name),static::$levels);		
+			if ($level!==false){
+				array_unshift($arguments, $level);				
+				return static::make()->write(...$arguments);
+			}		
+		}
 	}
 	
 	public function write($level, string $merchant_id, array $params=[]){		
@@ -47,7 +49,7 @@ class Logger {
 		}						
 		if (is_int($level) || ctype_digit($level)){
 			$level=intval($level);
-			if ($level<0 || $level>7){
+			if ($level<0 || $level>count(static::$levels)-1){
 				$level=0;
 			}			
 		}else if (is_string($level)){

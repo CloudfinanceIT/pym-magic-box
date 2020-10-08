@@ -15,7 +15,7 @@ class Alias extends BaseOnModel {
 			$this->managed=$this->searchModelOrFail($ref);
 		}	
                 $this->performer=$this->managed->performer;
-		pmbLogger::make()->write("DEBUG", $this->merchant_id, ["re" => $ref, "al" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Alias' class"]);
+		pmbLogger::debug($this->merchant_id, ["re" => $ref, "al" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Alias' class"]);
 	}
 	
 	public function engine(){

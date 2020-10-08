@@ -18,7 +18,7 @@ class Payment extends BaseOnModel {
 		}
                 $this->performer=$this->managed->performer;
 		$this->is_refundable=$this->engine()->isRefundable();		
-		pmbLogger::make()->write("DEBUG", $this->merchant_id, ["re" => $ref, "pe" => $this->performer, "message" => "Created a 'Payment' class"]);
+		pmbLogger::debug($this->merchant_id, ["re" => $ref, "pe" => $this->performer, "message" => "Created a 'Payment' class"]);
 	}
 			
 	public function engine(){
