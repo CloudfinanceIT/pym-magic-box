@@ -20,6 +20,14 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
                 if (is_file($rpath)){
                     $this->loadRoutesFrom($rpath);
                 }
+				
+		if ($this->app->runningInConsole()) {
+			// publish config file
+
+			$this->commands([
+				\Mantonio84\pymMagicBox\Console\PopulateEngines::class,
+			]);
+		}
 		
 		$this->publishes([
                     __DIR__.'/Config/pymMagicBox.php' => config_path('pymMagicBox.php'),                    
