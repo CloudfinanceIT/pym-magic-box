@@ -6,6 +6,7 @@ class processPaymentResponse implements Arrayable {
 	public $billed=false;
 	public $confirmed=false;	
 	public $other_data=array();
+	public $transaction_ref=null;
 	
 	public function __construct($data=null){
 		if (is_array($data)){
@@ -23,11 +24,14 @@ class processPaymentResponse implements Arrayable {
 		if (array_key_exists("other_data",$data)){
 			$this->other_data=is_array($data['other_data']) ? $data['other_data'] : [];
 		}
+		if (array_key_exists("transaction_ref",$data)){
+			$this->transaction_ref=$data['transaction_ref'];
+		}
 		return $this;
 	}
 
 	public function toArray(){
-		return array("billed" => $this->billed, "confirmed" => $this->confirmed, "other_data" => $this->other_data);
+		return array("billed" => $this->billed, "confirmed" => $this->confirmed, "other_data" => $this->other_data, "transaction_ref" => $this->transaction_ref);
 	}
 	
 	

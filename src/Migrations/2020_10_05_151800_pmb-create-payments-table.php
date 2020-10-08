@@ -19,6 +19,7 @@ class PmbCreatePaymentsTable extends Migration
 			$table->string("customer_id")->index();
 			$table->string("order_ref")->index();
 			$table->string("bb_code",16)->nullable();
+			$table->string("transaction_ref")->nullable();
 			$table->unsignedDecimal('amount', 12, 2);
 			$table->dateTime("billed_at")->nullable();
 			$table->dateTime("confirmed_at")->nullable();
