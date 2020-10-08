@@ -7,7 +7,7 @@ class pmbPerformer extends pmbBase{
 		
 	protected $guarded=["id"];
 	
-	protected $casts=["enabled" => "boolean"];
+	protected $casts=["enabled" => "boolean", "credentials" => "array"];
 	
 	public function scopeMerchant($query, string $merchant_id){
 		return $query->where("merchant_id",$merchant_id);

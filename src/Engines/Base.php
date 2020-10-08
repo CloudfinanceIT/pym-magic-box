@@ -32,7 +32,7 @@ abstract class Base {
 		$this->performer=$performer;		
 		$this->merchant_id=$this->performer->merchant_id;
 		$snm=Str::snake($performer->method->name);				
-		$this->config=array_merge($this->onlyIfIsArray(config("pymMagicBox.profiles.common.".$snm)),$this->onlyIfIsArray(config("pymMagicBox.profiles.".$this->merchant_id.".".$snm)));
+		$this->config=array_merge($this->onlyIfIsArray(config("pymMagicBox.profiles.common.".$snm)),$this->onlyIfIsArray(config("pymMagicBox.profiles.".$this->merchant_id.".".$snm)),$this->onlyIfIsArray($performer->credentials));
 		if (!$this->validateConfig($this->config)){
 			throw new \invalidMethodConfigException("Invalid config for method key '$snm'!");
 		}        
