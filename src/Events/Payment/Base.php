@@ -11,6 +11,10 @@ abstract class Base {
 	public $when;
 	public $merchant_id;
 	protected $model;
+        
+        public static function make(string $merchant_id, pmbPayment $payment){
+            return new static($merchant_id,$payment);
+        }
 	
 	public function __construct(string $merchant_id, pmbPayment $payment){
 		$this->when=now();
@@ -23,4 +27,17 @@ abstract class Base {
 	public function getPayment(){
 		return new Payment($this->merchant_id,$this->model);
 	}
+        
+        public function with($key,$value=null){
+            if (is_array($key)){
+                foreach ($key as $k => $v){
+                    $this->with($k,$v);
+                }
+                return $this;
+            }
+            if (property_exists($this, $key)){
+                $this->{$key}=$value;
+            }
+            return $this;
+        }
 }

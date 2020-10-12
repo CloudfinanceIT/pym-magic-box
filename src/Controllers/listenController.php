@@ -22,7 +22,7 @@ class pymListenController extends Controller
 			$action="listen".ucfirst(Str::camel($action));
 			if ($engine->canRun($action)){						
                             pmbLogger::info($merchant, ["engine" => $engine, "message" => "Listen request for '$action'", "details" => json_encode($request->all())]);
-                            return $engine->run($action,["request" => $request]);
+                            return $engine->run($action,["request" => $request->all()]);
 			}
 		}
 		return abort(501);

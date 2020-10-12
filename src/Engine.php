@@ -10,16 +10,14 @@ use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
 
 
 class Engine extends Base implements pmbLoggable {
-	
-	public $is_refundable=false;
+		
 	public $supports_aliases=false;	
 	protected $signatures;
 	
 	public function __construct(string $merchant_id, AbstractEngine $managed){		
 		$this->acceptMerchantId($merchant_id);
 		$this->managed=$managed;
-                $this->performer=$this->managed->performer;
-		$this->is_refundable=$managed->isRefundable();
+                $this->performer=$this->managed->performer;		
 		$this->supports_aliases=$managed->supportsAliases();                
 		pmbLogger::debug($this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine wrapper for '".class_basename($managed)."'"]);
 	}
@@ -33,7 +31,7 @@ class Engine extends Base implements pmbLoggable {
         
         public function pay(float $amount, array $other_data=[], string $customer_id="", string $order_ref=""){ 		
 		pmbLogger::debug($this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
-		return $this->wrapPaymentModel($this->managed->pay($amount,null,$customer_id,$order_ref,$other_data));
+		return $this->wrapPayResponse($this->managed->pay($amount,null,$customer_id,$order_ref,$other_data));
 	}
 	
 	public function payWithAlias(float $amount, $alias_ref, array $other_data=[], string $order_ref=""){
@@ -56,7 +54,7 @@ class Engine extends Base implements pmbLoggable {
                 }
             
 		pmbLogger::debug($this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
-		return $this->wrapPaymentModel($this->managed->pay($amount,$alias,$alias->customer_id,$order_ref,$other_data));
+		return $this->wrapPayResponse($this->managed->pay($amount,$alias,$alias->customer_id,$order_ref,$other_data));
 	}
 	
 	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null){
@@ -86,8 +84,9 @@ class Engine extends Base implements pmbLoggable {
 			try {
 				$ret=call_user_func_array([$this->managed,$method],$params);
 			}catch (\Exception $e) {
-				pmbLogger::emergency($this->merchant_id,array_merge($params,["per" => $this->managed->performer, "ex" => $e]));
-				throw $e;
+                                if (!($e instanceof pymMagicBoxLoggedException)){       
+                                    pmbLogger::emergency($this->merchant_id,array_merge($params,["per" => $this->managed->performer, "ex" => $e]));
+                                }				
 				return null;
 			}
 			if ($ret instanceof pmbAlias){
@@ -144,7 +143,7 @@ class Engine extends Base implements pmbLoggable {
 			foreach ($methods as $mt){
 				if ($mt->isPublic() && !$mt->isStatic() && !$mt->isConstructor() && !$mt->isDestructor() && !$mt->isAbstract()){
 					$n=$mt->getName();
-					if (!in_array($n,["isRefundable","supportsAliases","pay","confirm","refund","aliasCreate","aliasDelete"])){
+					if (!in_array($n,["isConfirmable","isRefundable","supportsAliases","pay","confirm","refund","aliasCreate","aliasDelete","getConfigurationData"])){
 						$this->signatures[$n]=$mt->getParameters();
 					}
 				}
@@ -153,9 +152,9 @@ class Engine extends Base implements pmbLoggable {
 	}
        
 	
-         protected function wrapPaymentModel($ret){
-            if ($ret instanceof pmbPayment){
-                return new Payment($this->merchant_id, $ret);
+         protected function wrapPayResponse($ret){
+            if (is_array($ret) && count($ret)==2){
+                return new Payment($this->merchant_id, $ret[0], $ret[1]);                
             }
             return $ret;
 	}

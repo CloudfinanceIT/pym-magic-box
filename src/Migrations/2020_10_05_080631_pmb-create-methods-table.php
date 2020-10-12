@@ -18,7 +18,7 @@ class PmbCreateMethodsTable extends Migration
             $table->timestamps();
 			$table->string("name",80)->index();
 			$table->string("engine");			
-			$table->boolean("auto")->default(false);						
+								
         });
     }
 

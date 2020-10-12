@@ -6,9 +6,7 @@ use \Illuminate\Support\Str;
 class pmbMethod extends pmbBase {
 		
 	protected $guarded=["id"];
-	
-	protected $casts=["auto" => "boolean"];
-	
+		
 	public function getPmbLogData(): array {
 		return ["method_name" => $this->name];
 	}

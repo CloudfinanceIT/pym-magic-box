@@ -18,7 +18,7 @@ class PmbCreatePaymentsTable extends Migration
             $table->timestamps();			
 			$table->string("customer_id")->index();
 			$table->string("order_ref")->index();
-			$table->string("bb_code",16)->nullable();
+			
 			$table->string("transaction_ref")->nullable();
 			$table->unsignedDecimal('amount', 12, 2);
 			$table->dateTime("billed_at")->nullable();
@@ -26,6 +26,7 @@ class PmbCreatePaymentsTable extends Migration
 			$table->dateTime("refunded_at")->nullable();
 			$table->unsignedBigInteger("performer_id");
                         $table->unsignedInteger("alias_id")->nullable();
+                        $table->string("tracker")->nullable()->index();
 			$table->json("other_data");
 			$table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');
                         $table->foreign("alias_id")->references('id')->on('pmb_aliases')->onDelete('set null')->onUpdate("cascade");

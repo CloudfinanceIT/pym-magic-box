@@ -11,25 +11,7 @@ class pmbPayment extends pmbBaseWithPerformer  {
 	protected $casts=["amount" => "float", "billed_at" => "datetime", "confirmed_at" => "datetime", "refunded_at" => "datetime", "other_data" => "array"];
 	protected $appends=["billed","confirmed","refunded"];
 	
-	protected static function boot(){
-		parent::boot();
-		static::creating(function ($md){
-                    
-			if (empty($md->bb_code) && ($md->performer->method->auto === false || config("pymMagicBox.bb_code.only_manual",true)===false)){
-				$l=intval(config("pymMagicBox.bb_code.len",5));
-				if ($l<3 || $l>16) $l=5;
-				$md->bb_code=static::generateBBCode($l);
-			}
-		});
-	}	
 	
-	protected static function generateBBCode(int $len){
-		$r=null;
-		while (is_null($r) || ctype_digit($r)){
-			$r=substr(str_shuffle("ABCDEFGHJLMNPQRTUVWXYZ2346789"), 0, $len);
-		}
-		return $r;
-	}
 	
 	public function toEditable(){
 		return new Payment($this->performer->merchant_id, $this);

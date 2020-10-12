@@ -22,16 +22,14 @@ class Gateway extends Base {
     }
         
     public function build($name){
-        if (!array_key_exists($name, $this->engines)){
+        if (!array_key_exists($name, $this->engines)){                  
             $this->engines[$name]=null;
-            $performers=pmbPerformer::with("method")->merchant($this->merchant_id)->enabled()->get();
-            foreach ($performers as $per){
-                if (Str::snake($per->method->name) == $name){
-                    $cls=$per->method->engine_class_name;
-                    $this->engines[$name]=new Engine($this->merchant_id, $per->getEngine());
-                    break;
-                }
-            }            
+            $performer=pmbPerformer::with("method")->whereHas("method",function ($q) use ($name){
+                return $q->where("name",$name);
+            })->merchant($this->merchant_id)->enabled()->first();              
+            if ($performer){
+                $this->engines[$name]=new Engine($this->merchant_id,$performer->getEngine());
+            }
         }        
         return $this->engines[$name];
     }

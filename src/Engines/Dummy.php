@@ -8,11 +8,18 @@ class Dummy extends Base {
     
     //TRANQUILLI: E' TUTTO FINTO!!!
     
-	protected function validateConfig(array $config): bool {
-		return true;
-	}
+    public static function autoDiscovery(){
+        if (config("app.env")!="production"){
+            return [
+                "name" => "dummy",               
+            ];
+        }
+    }
+    
+    protected function validateConfig(array $config) {	
+    }
 	
-    protected function onProcessAliasCreate(array $data, string $name = "", string $customer_id = "", $expires_at = null): array {
+    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
         return $data;
     }
 
@@ -37,11 +44,15 @@ class Dummy extends Base {
         return true;
     }
 
-    public function isRefundable(): bool {
+    public function isRefundable(pmbPayment $payment): bool {
         return true;
     }
 
     public function supportsAliases(): bool {
+        return true;
+    }
+    
+    public function isConfirmable(pmbPayment $payment): bool {
         return true;
     }
 
