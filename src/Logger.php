@@ -72,7 +72,7 @@ class Logger {
 			if ($md instanceof pmbLoggable){
 				$attributes=array_merge(array_filter($md->getPmbLogData()),$attributes);
 			}else if ($md instanceof \Exception){
-				$attributes=array_merge(["message" => class_basename($e)." ::: ".$e->getMessage(), "details" => $e->getTraceAsString()],$attributes);
+				$attributes=array_merge(["message" => class_basename($md)." ::: ".$md->getMessage(), "details" => $md->getTraceAsString()],$attributes);
 			}
 		}
 		$attributes=array_filter($attributes,"is_scalar");
@@ -87,22 +87,23 @@ class Logger {
 		return $a;
 	}
 	
-	public function rotate(bool $forced=false){
-		$last=intval(Cache::get("pymMagicBox.logRotatedAt"));
-		if ((time()-$last>=86400) || ($forced)){
-			$interval=config("pymMagicBox.log_rotation",false);
-			if (is_string($interval)){
-				$interval=explode(" ",$interval);
-			}
-			if (is_array($interval) && count($interval)==2){			
-				$when=now()->sub(...$interval);
-			}else if ($interval instanceof \Carbon\CarbonInterval){
-				$when=now()->sub($interval);
-			}
-			if (isset($when)){
-				static::where("created_at","<=",$when)->delete();
-				Cache::forever("pymMagicBox.logRotatedAt",time());
-			}
-		}
+	public function rotate(bool $forced=false){		
+            if (!Cache::has("pymMagicBox.logRotatedAt") || ($forced)){
+                $interval=config("pymMagicBox.log_rotation",false);
+                if (is_string($interval)){
+                    $interval=explode(" ",$interval);
+                }
+                if (is_array($interval) && count($interval)==2){			
+                    $when=now()->sub(...$interval);
+                    $lwhen=now()->add(...$interval);
+                }else if ($interval instanceof \Carbon\CarbonInterval){
+                    $when=now()->sub($interval);
+                    $lwhen=now()->add($interval);
+                }
+                if (isset($when) && isset($lwhen)){
+                    static::where("created_at","<=",$when)->delete();
+                    Cache::put("pymMagicBox.logRotatedAt",1,$lwhen);
+                }
+            }
 	}
 }

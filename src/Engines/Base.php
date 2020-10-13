@@ -10,10 +10,10 @@ use \Mantonio84\pymMagicBox\Exceptions\paymentMethodInvalidOperationException;
 use \Mantonio84\pymMagicBox\Exceptions\invalidMethodConfigException;
 use \Mantonio84\pymMagicBox\Exceptions\genericMethodException;
 use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxLoggedException;
+use \Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use \Carbon\Carbon;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
-use \Illuminate\Validation\Validator;
 
 abstract class Base {
 	
@@ -40,13 +40,15 @@ abstract class Base {
                 $vc=$this->validateConfig($this->config);
                 if ($vc===false){		
                     throw new invalidMethodConfigException("Invalid config for method key '$snm'!");
-		}        
-                if (is_string($vc)){
+		}else if (is_string($vc)){
                     throw new invalidMethodConfigException("Invalid config for method key '$snm': $vc!");
-                }
-                if ($vc instanceof Validator && $vc->fails()){
-                    
+                }else if ($vc instanceof ValidatorContract && $vc->fails()){                    
                     throw invalidMethodConfigException::make("Invalid config for method key '$snm'!")->withErrors($vc->getMessageBag());
+                }else if (is_array($vc)){
+                    $vcv=\Validator::make($this->config,$vc);
+                    if ($vcv->fails()){
+                        throw invalidMethodConfigException::make("Invalid config for method key '$snm'!")->withErrors($vcv->getMessageBag());
+                    }
                 }
                 if (method_exists($this, "onEngineInit")){
                     $this->onEngineInit();
@@ -96,8 +98,8 @@ abstract class Base {
 	
 
 	
-	public function pay(float $amount, $alias=null, string $customer_id="", string $order_ref="", array $data=[]) {
-		$payment=$this->resolveNewPaymentModel($order_ref,$amount,$customer_id,$this->performer);	
+	public function pay(float $amount, string $currency_code, $alias=null, string $customer_id="", string $order_ref="", array $data=[]) {
+		$payment=$this->resolveNewPaymentModel($order_ref,$amount,$currency_code,$customer_id,$this->performer);	
                 $action=null;
 		if (!$payment->billed){
 			$adata=null;
@@ -190,12 +192,12 @@ abstract class Base {
 		return $payment;
 	}
 	
-	protected function resolveNewPaymentModel($order_ref, $amount, $customer_id, pmbPerformer $performer){
-                $payment=new pmbPayment(compact("order_ref","amount", "customer_id"));
+	protected function resolveNewPaymentModel($order_ref, $amount, $currency_code, $customer_id, pmbPerformer $performer){
+                $payment=new pmbPayment(compact("order_ref","amount", "customer_id", "currency_code"));
 		$unique=(config("pymMagicBox.unique_payments",true)===true);		
 		if ($unique){			
                     $found=null;
-                    $list=pmbPayment::ofPerformers($this->getAllPerformersIds())->where("order_ref",$order_ref)->where("amount",$amount)->whereNotNull("order_ref")->get();			
+                    $list=pmbPayment::ofPerformers($this->getAllPerformersIds())->where("order_ref",$order_ref)->whereNotNull("order_ref")->where("amount",$amount)->where("currency_code",$currency_code)->get();			
                     if ($list->isNotEmpty()){
                             $found=$list->firstWhere("performer_id",$performer->getKey()) ?? $list->first();			
                     }

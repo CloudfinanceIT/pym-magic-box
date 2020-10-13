@@ -6,10 +6,12 @@ use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Validator;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
+use Mantonio84\pymMagicBox\Classes\HttpClient;
 
 class AfoneCreditCard extends Base {
     
     protected $httpclient;
+ 
     
     public static function autoDiscovery(){
         return [
@@ -18,13 +20,13 @@ class AfoneCreditCard extends Base {
     }
     
     protected function validateConfig(array $config) {
-        return Validator::make($config,[
+        return [
             "base_uri" => ["required","url"],
             "key" => ["required","string","alpha_num","size:20"],
             "serialNumber" => ["required","string",'regex:/^(HOM|VAD)-[\d]{3}-[\d]{3}$/'],
             "force3ds" => ["bail","nullable","integer","in:0,1"],
             "after-3ds-route" => ["required","string"],
-        ]);
+        ];
         
     }
     
@@ -36,10 +38,10 @@ class AfoneCreditCard extends Base {
         if (!isset($data['tokenRef']) || empty($data['tokenRef'])){
             return $this->throwAnError("Invalid tokenRef!");
         }
-        $process=$this->parseResponse($this->post("/rest/alias/tokenCreate", $this->withBaseData([
+        $process=$this->httpClient()->post("/rest/alias/tokenCreate", $this->withBaseData([
             "tokenRef" => $data['tokenRef'],
             "aliasRer" => $name,
-        ])));
+        ]));
         return $process['alias'];
     }
 
@@ -48,12 +50,11 @@ class AfoneCreditCard extends Base {
     }
 
     protected function onProcessConfirm(pmbPayment $payment, array $data = array()): bool {
-        $this->parseResponse($this->post("rest/payment/end3dsDebit", $this->withBaseData([
+        $this->httpClient()->post("rest/payment/end3dsDebit", $this->withBaseData([
             "transactionRef" => $payment->transaction_ref,
             "pares" => $data['pares'],
             "md" => $data['md']
-        ])));
-        $payment->tracker=null;
+        ]));        
         return true;
    }
 
@@ -69,7 +70,7 @@ class AfoneCreditCard extends Base {
                 return $this->throwAnError("Invalid tokenRef!");
             }            
             $pd["tokenRef"] = $data['tokenRef'];            
-            $process=$this->parseResponse($this->post("rest/payment/tokenDebit",$pd));            
+            $process=$this->httpClient()->post("rest/payment/tokenDebit",$pd);            
         }else{
             if (!isset($alias_data['aliasRef']) || empty($alias_data['aliasRef'])){
                 return $this->throwAnError("Invalid aliasRef!");
@@ -80,7 +81,7 @@ class AfoneCreditCard extends Base {
             $pd["alias"] = $alias_data['aliasRef'];
             $pd['ip'] = request()->ip();
             $pd['cvv'] = $data['cvv'];
-            $process=$this->parseResponse($this->post("/rest/payment/aliasDebit",$pd));            
+            $process=$this->httpClient()->post("/rest/payment/aliasDebit",$pd);            
         }        
         if ($process['actionCode']=="AUTH_3DS_REQUISE"){
             $this->log("INFO", "Payment ".$pd['transactionRef']." needs 3ds confirmation");
@@ -132,10 +133,10 @@ class AfoneCreditCard extends Base {
     }
     
     protected function onProcessRefund(pmbPayment $payment, array $data = array()): bool {
-        $this->parseResponse($this->post("/rest/payment/refund",$this->withBaseData([
+        $this->httpClient()->post("/rest/payment/refund",$this->withBaseData([
             "transactionRef" => $payment->transaction_ref,
             "amount" => $payment->amount*100
-        ])));
+        ]));
         return true;
     }
 
@@ -167,46 +168,20 @@ class AfoneCreditCard extends Base {
     }
     
     protected function getEndPointURL(string $uri=""){        
-        if (!empty($uri)){
-            if (Str::endsWith($uri, "/")){
-                $uri=substr($uri,-1);
-            }
-            if (Str::startWith($uri, "/")){
-                $uri=substr($uri,1);
-            }
-        }
-        return $this->config['base_uri'].$uri;
+        return $this->httpClient()->getEndPointURL($uri);
     }
     
     protected function httpClient(){        
         if (is_null($this->httpclient)){
-            $this->httpclient=\GuzzleHttp\Client([            
-                'base_uri' => $this->getEndPointURL(),                
-                'timeout'  => 2.0,
-            ]);
+            $this->httpclient=HttpClient::make($this->merchant_id, $this->cfg("base_uri"))
+                    ->withLogData(["pe" => $this->performer])
+                    ->validateResponsesWith(function ($rp){                        
+                        return (intval(Arr::get($rp,"ok",0))==1);
+                    });
         }
         return $this->httpclient;
     }
-    
-    protected function post(string $uri, array $data){
-        return $this->httpClient()->request("POST", $uri,["form_params" => $data]);
-    }
-    
-    protected function parseResponse($response){
-        $body=(string) $response->getBody();
-        $data = json_decode($body, true);
-        if (!is_array($data) || $response->getStatusCode()!=200){
-            return $this->throwAnError("Invalid POST response","ALERT",$body);
-        }
-        if (!isset($data['ok'])){
-            return $this->throwAnError("Invalid POST response","ALERT",$body);
-        }
-        if ($data['ok']==0){
-             return $this->throwAnError("POST error: ".$data['message'],"ALERT",$body);
-        }
-        return $data;
-    }
-        
+  
     
     protected function withBaseData(array $data){
         return array_merge($data,Arr::only($this->config,["key","serialNumber"]),["origin" => url("")]);

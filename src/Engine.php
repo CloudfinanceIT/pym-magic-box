@@ -4,13 +4,28 @@ use \Mantonio84\pymMagicBox\Engines\Base as AbstractEngine;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
-use Mantonio84\pymMagicBox\Exceptions\aliasNotFoundException;
+use \Mantonio84\pymMagicBox\Exceptions\aliasNotFoundException;
 use \Illuminate\Support\Str;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
-
+use \Mantonio84\pymMagicBox\Exceptions\invalidCurrencyCodeException;
+use \Mantonio84\pymMagicBox\Exceptions\invalidAmountException;
 
 class Engine extends Base implements pmbLoggable {
 		
+        protected $currencies=["AED","AFN","ALL","AMD","ANG","AOA","ARS","AUD","AWG","AZN","BAM","BBD","BDT","BGN",
+                               "BHD","BIF","BMD","BND","BOB","BOV","BRL","BSD","BTN","BWP","BYN","BZD","CAD","CDF",
+                               "CHE","CHF","CHW","CLF","CLP","CNY","COP","COU","CRC","CUC","CUP","CVE","CZK","DJF",
+                               "DKK","DOP","DZD","EGP","ERN","ETB","EUR","FJD","FKP","GBP","GEL","GHS","GIP","GMD",
+                               "GNF","GTQ","GYD","HKD","HNL","HRK","HTG","HUF","IDR","ILS","INR","IQD","IRR","ISK",
+                               "JMD","JOD","JPY","KES","KGS","KHR","KMF","KPW","KRW","KWD","KYD","KZT","LAK","LBP",
+                               "LKR","LRD","LSL","LYD","MAD","MDL","MGA","MKD","MMK","MNT","MOP","MRU","MUR","MVR",
+                               "MWK","MXN","MXV","MYR","MZN","NAD","NGN","NIO","NOK","NPR","NZD","OMR","PAB","PEN",
+                               "PGK","PHP","PKR","PLN","PYG","QAR","RON","RSD","RUB","RWF","SAR","SBD","SCR","SDG",
+                               "SEK","SGD","SHP","SLL","SOS","SRD","SSP","STN","SVC","SYP","SZL","THB","TJS","TMT",
+                               "TND","TOP","TRY","TTD","TWD","TZS","UAH","UGX","USD","USN","UYI","UYU","UYW","UZS",
+                               "VES","VND","VUV","WST","XAF","XCD","XOF","XPF","YER","ZAR","ZMW","ZWL"
+                                ];
+    
 	public $supports_aliases=false;	
 	protected $signatures;
 	
@@ -21,6 +36,14 @@ class Engine extends Base implements pmbLoggable {
 		$this->supports_aliases=$managed->supportsAliases();                
 		pmbLogger::debug($this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine wrapper for '".class_basename($managed)."'"]);
 	}
+        
+        public function getValidCurrencyCodes(){
+            return $this->currencies;
+        }
+        
+        public function isValidCurrencyCode(string $code){            
+            return in_array(strtoupper($code),$this->currencies);
+        }
 	
 	public function getPmbLogData(): array{
 		return [
@@ -29,12 +52,14 @@ class Engine extends Base implements pmbLoggable {
 		];
 	}
         
-        public function pay(float $amount, array $other_data=[], string $customer_id="", string $order_ref=""){ 		
+        public function pay($amount, array $other_data=[], string $customer_id="", string $order_ref=""){ 		
+                $amount=$this->parseAmountAndCurrencyCode($amount);
 		pmbLogger::debug($this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
-		return $this->wrapPayResponse($this->managed->pay($amount,null,$customer_id,$order_ref,$other_data));
+		return $this->wrapPayResponse($this->managed->pay($amount[0],$amount[1],null,$customer_id,$order_ref,$other_data));
 	}
 	
-	public function payWithAlias(float $amount, $alias_ref, array $other_data=[], string $order_ref=""){
+	public function payWithAlias($amount, $alias_ref, array $other_data=[], string $order_ref=""){
+                $amount=$this->parseAmountAndCurrencyCode($amount);
                 if (is_scalar($alias_ref)){
                     $alias=Alias::find($this->merchant_id,$alias_ref)->toBase();                   
                 }else if ($alias_ref instanceof pmbAlias){
@@ -54,7 +79,7 @@ class Engine extends Base implements pmbLoggable {
                 }
             
 		pmbLogger::debug($this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
-		return $this->wrapPayResponse($this->managed->pay($amount,$alias,$alias->customer_id,$order_ref,$other_data));
+		return $this->wrapPayResponse($this->managed->pay($amount[0],$amount[1],$alias,$alias->customer_id,$order_ref,$other_data));
 	}
 	
 	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null){
@@ -104,6 +129,44 @@ class Engine extends Base implements pmbLoggable {
 		return array_key_exists($method,$this->signatures);
 	}
 	
+        protected function parseAmountAndCurrencyCode($w){
+            $ret=null;
+            $defaultCurrencyCode=config("pymMagicBox.default_currency_code","EUR");
+            if (!$this->isValidCurrencyCode($defaultCurrencyCode)){
+                throw new invalidCurrencyCodeException("Ivalid default currency code '$defaultCurrencyCode'!");
+                return null;
+            }
+            if (is_float($w) || is_int($w) || ctype_digit($w)){
+                $ret=array(floatval($w), $defaultCurrencyCode);
+            }else if (is_string($w)){
+                $ret=explode(" ",$w,2);
+            }else if (is_array($w)){
+                $ret=$w;
+            }
+            $ret[1]=strtoupper($ret[1]);
+            if (!is_array($ret)){
+                throw new invalidAmountException("Ivalid amount given '$w'!");
+                return null;
+            }
+            if (count($ret)!=2){
+                throw new invalidAmountException("Ivalid amount given '$w'!");
+                return null;
+            }
+            if (!is_float($ret[0]) && !is_int($ret[0]) && !ctype_digit($ret[0])){
+                throw new invalidAmountException("Ivalid amount given '$w'!");
+                return null;
+            }
+            if ($ret[0]<=0){
+                throw new invalidAmountException("Ivalid amount given '$w'!");
+                return null;
+            }
+            if (!$this->isValidCurrencyCode($ret[1])){
+                throw new invalidCurrencyCodeException("Ivalid currency code given '".$ret[1]."'!");
+                return null;
+            }
+            $ret[0]=floatval($ret[0]);
+            return $ret;
+        }
 	
 	protected function extractArgument(array &$arguments, $rp, $method){
 		$n=$rp->getName();
