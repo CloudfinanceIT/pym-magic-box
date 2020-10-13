@@ -3,7 +3,8 @@
 	"description" : "Gateway di pagamento per Laravel con supporto metodi di pagamento multipli",
 	"require" : {
 		"php" : "^7.1.2",
-		"guzzlehttp/guzzle": "^6.5"
+		"guzzlehttp/guzzle": ">=6.5",
+		"smalot/pdfparser": "^0.17.0"
 	},
 	"autoload" : {
 		"psr-4" : {
