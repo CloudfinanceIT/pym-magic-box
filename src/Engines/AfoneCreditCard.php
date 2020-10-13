@@ -190,4 +190,8 @@ class AfoneCreditCard extends Base {
     protected function generateTransactionRef(){
         return Str::random(32);
     }
+    
+    protected function validateCurrencyCode(string $code) {    
+        return (strtoupper($code)=="EUR");
+    }
 }

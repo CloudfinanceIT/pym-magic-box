@@ -8,9 +8,11 @@ use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Exceptions\paymentMethodInvalidOperationException;
 use \Mantonio84\pymMagicBox\Exceptions\invalidMethodConfigException;
+use \Mantonio84\pymMagicBox\Exceptions\invalidCurrencyCodeException;
 use \Mantonio84\pymMagicBox\Exceptions\genericMethodException;
 use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxLoggedException;
 use \Illuminate\Contracts\Validation\Validator as ValidatorContract;
+use \Mantonio84\pymMagicBox\Engine as pmbEngineWrapper;
 use \Carbon\Carbon;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
@@ -99,6 +101,7 @@ abstract class Base {
 
 	
 	public function pay(float $amount, string $currency_code, $alias=null, string $customer_id="", string $order_ref="", array $data=[]) {
+                $this->validateCurrencyCodeOrFail($currency_code);
 		$payment=$this->resolveNewPaymentModel($order_ref,$amount,$currency_code,$customer_id,$this->performer);	
                 $action=null;
 		if (!$payment->billed){
@@ -255,6 +258,29 @@ abstract class Base {
         
         protected function paymentFinderQuery(){
             return pmbPayment::ofPerformers($this->performer);
+        }
+        
+        protected function validateCurrencyCodeOrFail(string $code){
+            if (!$this->validateCurrencyCode($code)){
+                return $this->throwAnError("Currency '$code' not supported!");
+            }
+            return true;
+        }
+        
+        protected function validateCurrencyCode(string $code) {      
+            if (!isset($this->config['currencies'])){ 
+                //Siccome la validazione rispetto all'elenco completo delle currencies ISO 4217 viene già eseguito nella classe Mantonio84\pymMagicBox\Engine, è inutile rifarla!
+                return true;
+            }
+            
+            $validCurrencies=array_map("strtoupper",array_diff($this->onlyIfIsArray($this->cfg("currencies.valid"), pmbEngineWrapper::getValidCurrencyCodes()),$this->onlyIfIsArray($this->cfg("currencies.forbidden"))));
+            
+            if (empty($validCurrencies)){
+                //Follia!
+                return true;
+            }
+            
+            return in_array(strtoupper($code),$validCurrencies);
         }
         
         private function onlyIfIsArray($v,array $default=[]){

@@ -28,6 +28,10 @@ class Gateway extends Base {
         return pmbPerformer::with("method")->merchant($this->merchant_id)->enabled()->get()->pluck("method.name","method.id")->all();
     }
     
+    public function getValidCurrencyCodes(){
+        return Engine::getValidCurrencyCodes();
+    }
+    
     public function build($name){
         if (!array_key_exists($name, $this->engines)){                  
             $this->engines[$name]=null;

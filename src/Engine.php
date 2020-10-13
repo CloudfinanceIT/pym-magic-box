@@ -12,7 +12,7 @@ use \Mantonio84\pymMagicBox\Exceptions\invalidAmountException;
 
 class Engine extends Base implements pmbLoggable {
 		
-        protected $currencies=["AED","AFN","ALL","AMD","ANG","AOA","ARS","AUD","AWG","AZN","BAM","BBD","BDT","BGN",
+        protected static $currencies=["AED","AFN","ALL","AMD","ANG","AOA","ARS","AUD","AWG","AZN","BAM","BBD","BDT","BGN",
                                "BHD","BIF","BMD","BND","BOB","BOV","BRL","BSD","BTN","BWP","BYN","BZD","CAD","CDF",
                                "CHE","CHF","CHW","CLF","CLP","CNY","COP","COU","CRC","CUC","CUP","CVE","CZK","DJF",
                                "DKK","DOP","DZD","EGP","ERN","ETB","EUR","FJD","FKP","GBP","GEL","GHS","GIP","GMD",
@@ -37,12 +37,12 @@ class Engine extends Base implements pmbLoggable {
 		pmbLogger::debug($this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine wrapper for '".class_basename($managed)."'"]);
 	}
         
-        public function getValidCurrencyCodes(){
-            return $this->currencies;
+        public static function getValidCurrencyCodes(){
+            return static::$currencies;
         }
         
-        public function isValidCurrencyCode(string $code){            
-            return in_array(strtoupper($code),$this->currencies);
+        public static function isValidCurrencyCode(string $code){            
+            return in_array(strtoupper($code),static::getValidCurrencyCodes());
         }
 	
 	public function getPmbLogData(): array{
@@ -132,7 +132,7 @@ class Engine extends Base implements pmbLoggable {
         protected function parseAmountAndCurrencyCode($w){
             $ret=null;
             $defaultCurrencyCode=config("pymMagicBox.default_currency_code","EUR");
-            if (!$this->isValidCurrencyCode($defaultCurrencyCode)){
+            if (!static::isValidCurrencyCode($defaultCurrencyCode)){
                 throw new invalidCurrencyCodeException("Ivalid default currency code '$defaultCurrencyCode'!");
                 return null;
             }
@@ -160,7 +160,7 @@ class Engine extends Base implements pmbLoggable {
                 throw new invalidAmountException("Ivalid amount given '$w'!");
                 return null;
             }
-            if (!$this->isValidCurrencyCode($ret[1])){
+            if (!static::isValidCurrencyCode($ret[1])){
                 throw new invalidCurrencyCodeException("Ivalid currency code given '".$ret[1]."'!");
                 return null;
             }
