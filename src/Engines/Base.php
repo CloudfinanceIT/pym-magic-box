@@ -198,9 +198,9 @@ abstract class Base {
 	protected function resolveNewPaymentModel($order_ref, $amount, $currency_code, $customer_id, pmbPerformer $performer){
                 $payment=new pmbPayment(compact("order_ref","amount", "customer_id", "currency_code"));
 		$unique=(config("pymMagicBox.unique_payments",true)===true);		
-		if ($unique){			
+		if ($unique &&!empty($order_ref)){			
                     $found=null;
-                    $list=pmbPayment::ofPerformers($this->getAllPerformersIds())->where("order_ref",$order_ref)->whereNotNull("order_ref")->where("amount",$amount)->where("currency_code",$currency_code)->get();			
+                    $list=pmbPayment::ofPerformers($this->getAllPerformersIds())->where("order_ref",$order_ref)->where("amount",$amount)->where("currency_code",$currency_code)->get();			
                     if ($list->isNotEmpty()){
                             $found=$list->firstWhere("performer_id",$performer->getKey()) ?? $list->first();			
                     }
