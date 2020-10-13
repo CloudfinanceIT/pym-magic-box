@@ -20,6 +20,10 @@ class Gateway extends Base {
     public function __get($name){
         return $this->build($name);
     }
+	
+	public function getAllAvailableMethods(){
+        return pmbPerformer::with("method")->merchant($this->merchant_id)->enabled()->get()->pluck("method.name","method.id")->all();
+    }
         
     public function build($name){
         if (!array_key_exists($name, $this->engines)){                  
