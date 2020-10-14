@@ -10,7 +10,7 @@ use \Mantonio84\pymMagicBox\Exceptions\paymentMethodInvalidOperationException;
 use \Mantonio84\pymMagicBox\Exceptions\invalidMethodConfigException;
 use \Mantonio84\pymMagicBox\Exceptions\invalidCurrencyCodeException;
 use \Mantonio84\pymMagicBox\Exceptions\genericMethodException;
-use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxLoggedException;
+use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxException;
 use \Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use \Mantonio84\pymMagicBox\Engine as pmbEngineWrapper;
 use \Carbon\Carbon;
@@ -41,15 +41,15 @@ abstract class Base {
 		$this->config=array_merge($this->onlyIfIsArray(config("pymMagicBox.profiles.common.".$snm)),$this->onlyIfIsArray(config("pymMagicBox.profiles.".$this->merchant_id.".".$snm)),$this->onlyIfIsArray($performer->credentials));
                 $vc=$this->validateConfig($this->config);
                 if ($vc===false){		
-                    throw new invalidMethodConfigException("Invalid config for method key '$snm'!");
+                    throw invalidMethodConfigException::make("Invalid config for method key '$snm'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
 		}else if (is_string($vc)){
-                    throw new invalidMethodConfigException("Invalid config for method key '$snm': $vc!");
+                    throw invalidMethodConfigException::make("Invalid config for method key '$snm': $vc!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 }else if ($vc instanceof ValidatorContract && $vc->fails()){                    
-                    throw invalidMethodConfigException::make("Invalid config for method key '$snm'!")->withErrors($vc->getMessageBag());
+                    throw invalidMethodConfigException::make("Invalid config for method key '$snm'!")->withErrors($vc->getMessageBag())->loggable(null, $this->merchant_id, ["pe" => $this->performer]);
                 }else if (is_array($vc)){
                     $vcv=\Validator::make($this->config,$vc);
                     if ($vcv->fails()){
-                        throw invalidMethodConfigException::make("Invalid config for method key '$snm'!")->withErrors($vcv->getMessageBag());
+                        throw invalidMethodConfigException::make("Invalid config for method key '$snm'!")->withErrors($vcv->getMessageBag())->loggable(null, $this->merchant_id, ["pe" => $this->performer]);
                     }
                 }
                 if (method_exists($this, "onEngineInit")){
@@ -64,7 +64,7 @@ abstract class Base {
 			
 	public function aliasCreate(array $data, string $name, string $customer_id="", $expires_at=null){
 		if (!$this->supportsAliases()){
-			throw new paymentMethodInvalidOperationException("Method '".$this->performer->method->name."' does not support aliases!");
+			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
 		}
 		$ret=$this->sandbox("onProcessAliasCreate",[$data, $name, $customer_id, $expires_at]);
 		if (empty($ret)){
@@ -86,7 +86,7 @@ abstract class Base {
 	
 	public function aliasDelete(pmbAlias $alias){
 		if (!$this->supportsAliases()){
-			throw new paymentMethodInvalidOperationException("Method '".$this->performer->method->name."' does not support aliases!");
+			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
 		}
 		$ret=$this->sandbox("onProcessAliasDelete",[$alias]);
 		if ($ret){
@@ -151,7 +151,7 @@ abstract class Base {
 	
 	public function confirm(pmbPayment $payment, array $data=[]){		
 		if ($this->isConfirmable($payment)){
-			throw new paymentMethodInvalidOperationException("This method and/or payment does not support confirm operation!");
+			throw paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => json_encode($data)]);
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
 		if ($payment->billed && (!$payment->confirmed || !$unique) && !$payment->refunded){
@@ -174,7 +174,7 @@ abstract class Base {
 		
 	public function refund(pmbPayment $payment, array $data=[]){		
 		if (!$this->isRefundable()){
-			throw new paymentMethodInvalidOperationException("Method '".$this->performer->method->name."' does not support refund operation!");
+			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => json_encode($data)]);
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
 		if ($payment->billed && $payment->confirmed && (!$payment->refunded  || !$unique)){
@@ -222,10 +222,8 @@ abstract class Base {
 	protected function sandbox(string $funName, array $args=[]){
 		try {
 			$result=$this->{$funName}(...$args);
-		}catch (\Exception $e) {                        
-                        if (!($e instanceof pymMagicBoxLoggedException)){                        
-                            pmbLogger::emergency($this->performer->merchant_id,array_merge($args,["performer" => $this->performer, "ex" => $e]));			
-                        }
+		}catch (\Exception $e) {                                                
+                        report(pymMagicBoxException::wrap($e)->loggable("EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->performer])));                        
 			return null;
 		}
 		return $result;
@@ -244,7 +242,7 @@ abstract class Base {
        
         
         protected function throwAnError(string $message, $level="EMERGENCY", $details=""){            
-            throw new genericMethodException($level, $this->merchant_id, $message, $details, ["pe" => $this->performer]);
+            throw genericMethodException::make($message)->loggable($level, $this->merchant_id, ["message" => $message, "details" => $details, "pe" => $this->performer]);
             return false;
         }
         

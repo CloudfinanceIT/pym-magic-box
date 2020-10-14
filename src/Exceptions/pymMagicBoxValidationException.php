@@ -2,7 +2,7 @@
 namespace Mantonio84\pymMagicBox\Exceptions;
 use Illuminate\Support\MessageBag;
 
-abstract class pymMagicBoxValidationException extends pymMagicBoxException {
+class pymMagicBoxValidationException extends pymMagicBoxException {
     
     public $errors;
     
@@ -23,7 +23,7 @@ abstract class pymMagicBoxValidationException extends pymMagicBoxException {
     }
     
     public function withErrors(MessageBag $errors){
-        $this->errors=$errors;
-        return $this;
+        $this->errors=$errors;        
+        return $this->loggable("CRITICAL",null,["message" => $this->message, "details" => json_encode($errors->getMessages())]);        
     }
 }

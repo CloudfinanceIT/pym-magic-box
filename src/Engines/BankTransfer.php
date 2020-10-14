@@ -3,6 +3,7 @@ namespace Mantonio84\pymMagicBox\Engines;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
+use Mantonio84\pymMagicBox\Exceptions\genericMethodException;
 use \Validator;
 use Illuminate\Http\File;
 use \Validator;
@@ -217,8 +218,8 @@ class BankTransfer extends Base {
             $pdfText = preg_replace("/\s+/u", " ", $pdfText);
             $pdfText = trim($pdfText);
             return $pdfText;
-        } catch (\Exception $ex) {
-            $this->log("ERROR","Tentativo di parsing PDF fallito",$ex->getMessage());
+        } catch (\Exception $ex) {            
+            report(genericMethodException::wrap($ex)->loggable("ERROR",$this->merchant_id,["pe" => $this->performer]));
             return "";
         }
     }
@@ -257,7 +258,7 @@ class BankTransfer extends Base {
         try {
             $result = $client->OCRWebServiceRecognize($params);
         } catch (\SoapFault $fault) {
-            $this->log("ERROR","Tentativo di ocr PDF fallito: errore di trasmissione www o abbonamento al servizio ocr scaduto",$fault->getMessage());            
+            report(genericMethodException::wrap($ex)->loggable("ERROR",$this->merchant_id,["pe" => $this->performer]));
             return "";
         }
         $arr_str = json_decode(json_encode($result), true);

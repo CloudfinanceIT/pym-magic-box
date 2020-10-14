@@ -21,9 +21,8 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
     public function __construct(string $merchant_id, string $base_uri, $options=null) {        
         $this->acceptMerchantId($merchant_id);
         $this->base_uri=filter_var($base_uri,FILTER_VALIDATE_URL);                
-        if ($this->base_uri===false){
-            $this->log("ALERT", "HttpClient: Invalid base uri ($base_uri) given!");
-            throw new \Exception("Invalid base uri ($base_uri) given!");
+        if ($this->base_uri===false){            
+            throw httpClientException::make("Invalid base uri ($base_uri) given!")->loggable("ALERT", $merchant_id);
         }
         if (is_array($options)){
             $this->options=$options;
@@ -59,7 +58,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
     
     public function request(string $method, string $uri, array $data, array $headers = []){      
         if (!in_array(strtolower($method),$this->methods)){
-            throw new httpClientException("Invalid request method '$method'!");
+            throw httpClientException::make("Invalid request method '$method'!")->loggable("WARNING", $merchant_id);
             return false;
         }
         $pid=uniqid();
@@ -72,16 +71,14 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
         $statusCode=$response->getStatusCode();        
         $lgs="[$pid] $method RESPONSE FROM ".$this->getEndPointURL($uri)." (".$statusCode.")";
         $rawResponse=(string) $response->getBody();        
-        if ($statusCode!=200){
-            $this->log("WARNING",$lgs,$rawResponse);
-            throw new httpClientException($lgs);
+        if ($statusCode!=200){            
+            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => $rawResponse]);
             return false;
         }
         $rpdata=json_decode($rawResponse, true);
         if (!is_array($rpdata)){
-            $lgs.=" INVALID JSON DATA!";
-            $this->log("WARNING",$lgs,$rawResponse);
-            throw new httpClientException($lgs);
+            $lgs.=" INVALID JSON DATA!";            
+            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => $rawResponse]);
             return false;
         }
         $valid=true;
@@ -97,9 +94,8 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
             }
         }
         if (!$valid){
-            $lgs.=" RESPONSE VALIDATION FAILED!";
-            $this->log("WARNING",$lgs,$rpdata);
-            throw new httpClientException($lgs);
+            $lgs.=" RESPONSE VALIDATION FAILED!";            
+            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => json_encode($rpdata)]);
             return false;
         }
         $this->log("DEBUG",$lgs,$rpdata);

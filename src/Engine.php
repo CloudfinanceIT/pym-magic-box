@@ -9,6 +9,7 @@ use \Illuminate\Support\Str;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
 use \Mantonio84\pymMagicBox\Exceptions\invalidCurrencyCodeException;
 use \Mantonio84\pymMagicBox\Exceptions\invalidAmountException;
+use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxException;
 
 class Engine extends Base implements pmbLoggable {
 		
@@ -70,11 +71,11 @@ class Engine extends Base implements pmbLoggable {
                 
                 if (is_null($alias)){
                     $a=is_scalar($alias_ref) ? "Alias '".$alias_ref."'" : "Requested alias";
-                    throw new aliasNotFoundException($a." not found on performer #".$this->performer->getKey()."!");
+                    throw aliasNotFoundException::make($a." not found on performer #".$this->performer->getKey()."!")->loggable("WARNING",$this->merchant_id,["pe" => $this->performer]);
                 }
                     
                 if (!$alias->performer->is($this->performer)){                    
-                    throw new aliasNotFoundException("Alias '".$alias->name."' not valid on performer #".$this->performer->getKey()."!");
+                    throw aliasNotFoundException::make("Alias '".$alias->name."' not valid on performer #".$this->performer->getKey()."!")->loggable("WARNING",$this->merchant_id,["pe" => $this->performer, "al" => $alias]);
                     $alias=null;
                 }
             
@@ -109,10 +110,8 @@ class Engine extends Base implements pmbLoggable {
 			try {
 				$ret=call_user_func_array([$this->managed,$method],$params);
 			}catch (\Exception $e) {
-                                if (!($e instanceof pymMagicBoxLoggedException)){       
-                                    pmbLogger::emergency($this->merchant_id,array_merge($params,["per" => $this->managed->performer, "ex" => $e]));
-                                }				
-				return null;
+                                report(pymMagicBoxException::wrap($e)->loggable("EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->managed->performer])));                        
+                                return null;
 			}
 			if ($ret instanceof pmbAlias){
 				return new Alias($this->merchant_id, $ret);
@@ -133,7 +132,7 @@ class Engine extends Base implements pmbLoggable {
             $ret=null;
             $defaultCurrencyCode=config("pymMagicBox.default_currency_code","EUR");
             if (!static::isValidCurrencyCode($defaultCurrencyCode)){
-                throw new invalidCurrencyCodeException("Ivalid default currency code '$defaultCurrencyCode'!");
+                throw invalidCurrencyCodeException::make("Ivalid default currency code '$defaultCurrencyCode'!")->loggable("EMERGENCY",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
             if (is_float($w) || is_int($w) || ctype_digit($w)){
@@ -145,23 +144,23 @@ class Engine extends Base implements pmbLoggable {
             }
             $ret[1]=strtoupper($ret[1]);
             if (!is_array($ret)){
-                throw new invalidAmountException("Ivalid amount given '$w'!");
+                throw invalidAmountException::make("Ivalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
             if (count($ret)!=2){
-                throw new invalidAmountException("Ivalid amount given '$w'!");
+                throw invalidAmountException::make("Ivalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
             if (!is_float($ret[0]) && !is_int($ret[0]) && !ctype_digit($ret[0])){
-                throw new invalidAmountException("Ivalid amount given '$w'!");
+                throw invalidAmountException::make("Ivalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
             if ($ret[0]<=0){
-                throw new invalidAmountException("Ivalid amount given '$w'!");
+                throw invalidAmountException::make("Ivalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
             if (!static::isValidCurrencyCode($ret[1])){
-                throw new invalidCurrencyCodeException("Ivalid currency code given '".$ret[1]."'!");
+                throw invalidCurrencyCodeException::make("Ivalid currency code given '".$ret[1]."'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
             $ret[0]=floatval($ret[0]);

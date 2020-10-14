@@ -30,10 +30,6 @@ class AfoneCreditCard extends Base {
         
     }
     
-    protected function onEngineInit(){
-        $this->config['base_uri']=Str::finish($this->config['base_uri'],"/");
-    }
-	
     protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
         if (!isset($data['tokenRef']) || empty($data['tokenRef'])){
             return $this->throwAnError("Invalid tokenRef!");

@@ -2,6 +2,7 @@
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Models\pmbLog;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
+use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxException;
 use \Illuminate\Support\Str;
 use \Cache;
 
@@ -27,6 +28,7 @@ class Logger {
 		return static::$singleton;
 	}
 	
+      
 	public static function __callStatic($name, $arguments){		
 		$c=count($arguments);
 		if (ctype_lower($name) && $c>=1 && $c<=2){
@@ -53,7 +55,7 @@ class Logger {
 				$level=0;
 			}			
 		}else if (is_string($level)){
-			$level=array_search($level,static::$levels);
+			$level=array_search(strtoupper($level),static::$levels);
 			if ($level===false){
 				$level=0;
 			}			
@@ -69,11 +71,9 @@ class Logger {
 		
 		$attributes=array_intersect_key($params,array_flip(["method_name", "alias_id", "performer_id", "payment_id", "amount", "customer_id", "order_ref", "message", "details"]));		
 		foreach ($params as $md){
-			if ($md instanceof pmbLoggable){
-				$attributes=array_merge(array_filter($md->getPmbLogData()),$attributes);
-			}else if ($md instanceof \Exception){
-				$attributes=array_merge(["message" => class_basename($md)." ::: ".$md->getMessage(), "details" => $md->getTraceAsString()],$attributes);
-			}
+                    if ($md instanceof pmbLoggable){
+			$attributes=array_merge(array_filter($md->getPmbLogData()),$attributes);
+                    }
 		}
 		$attributes=array_filter($attributes,"is_scalar");
 		$attributes['level']=$level;
