@@ -95,7 +95,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
         }
         if (!$valid){
             $lgs.=" RESPONSE VALIDATION FAILED!";            
-            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => json_encode($rpdata)]);
+            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => $rpdata]);
             return false;
         }
         $this->log("DEBUG",$lgs,$rpdata);

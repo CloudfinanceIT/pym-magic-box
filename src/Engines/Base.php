@@ -68,7 +68,7 @@ abstract class Base {
 		}
 		$ret=$this->sandbox("onProcessAliasCreate",[$data, $name, $customer_id, $expires_at]);
 		if (empty($ret)){
-			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias creation falied!", "details" => json_encode($data)]);
+			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias creation falied!", "details" => $data]);
 			return null;
 		}
 		$a=new pmbAlias([
@@ -80,7 +80,7 @@ abstract class Base {
 		$a->performer()->associate($this->performer);
 		$a->save();		
                 
-		pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "al" => $a, "message" => "Alias created successfully!", "details" => json_encode(["input" => $data, "output" => $ret])]);
+		pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "al" => $a, "message" => "Alias created successfully!", "details" => ["input" => $data, "output" => $ret]]);
 		return $a;
 	}
 	
@@ -138,7 +138,7 @@ abstract class Base {
 				if (!$payment->exists){
                                     $payment->save();		
 				}				
-				pmbLogger::warning($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged", "details" => json_encode($process)]));
+				pmbLogger::warning($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged", "details" => $process]));
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"billed"));				
 			}			
 		}else{
@@ -151,7 +151,7 @@ abstract class Base {
 	
 	public function confirm(pmbPayment $payment, array $data=[]){		
 		if ($this->isConfirmable($payment)){
-			throw paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => json_encode($data)]);
+			throw paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]);
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
 		if ($payment->billed && (!$payment->confirmed || !$unique) && !$payment->refunded){
@@ -166,7 +166,7 @@ abstract class Base {
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirmed"));
 			}
 		}else{
-			pmbLogger::notice($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for confirmation: skipped", "details" => json_encode($payment->only(["billed","confirmed","refunded"]))]);
+			pmbLogger::notice($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for confirmation: skipped", "details" => $payment->only(["billed","confirmed","refunded"])]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirm-unsuitable"));
 		}
 		return $payment;
@@ -174,7 +174,7 @@ abstract class Base {
 		
 	public function refund(pmbPayment $payment, array $data=[]){		
 		if (!$this->isRefundable()){
-			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => json_encode($data)]);
+			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]);
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
 		if ($payment->billed && $payment->confirmed && (!$payment->refunded  || !$unique)){
@@ -189,7 +189,7 @@ abstract class Base {
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refunded"));
 			}
 		}else{
-			pmbLogger::notice($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for refund: skipped", "details" => json_encode($payment->only(["billed","confirmed","refunded"]))]);
+			pmbLogger::notice($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for refund: skipped", "details" => $payment->only(["billed","confirmed","refunded"])]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refund-unsuitable"));
 		}
 		return $payment;

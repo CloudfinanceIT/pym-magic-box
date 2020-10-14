@@ -24,6 +24,6 @@ class pymMagicBoxValidationException extends pymMagicBoxException {
     
     public function withErrors(MessageBag $errors){
         $this->errors=$errors;        
-        return $this->loggable("CRITICAL",null,["message" => $this->message, "details" => json_encode($errors->getMessages())]);        
+        return $this->loggable("CRITICAL",null,["message" => $this->message, "details" => $errors]);        
     }
 }

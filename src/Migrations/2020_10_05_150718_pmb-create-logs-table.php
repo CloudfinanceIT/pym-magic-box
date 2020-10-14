@@ -24,6 +24,7 @@ class PmbCreateLogsTable extends Migration
 			$table->unsignedBigInteger("payment_id")->nullable()->index();		
 			$table->unsignedBigInteger("alias_id")->nullable()->index();		
 			$table->unsignedDecimal('amount', 12, 2)->nullable();
+                        $table->string("currency_code",3)->nullable();
 			$table->string("customer_id")->nullable()->index();		
 			$table->string("order_ref")->nullable()->index();					
 			$table->string("message")->nullable();

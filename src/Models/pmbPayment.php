@@ -84,7 +84,7 @@ class pmbPayment extends pmbBaseWithPerformer  {
 	}
 	
 	public function getPmbLogData(): array {
-		return array_merge(["payment_id" => $this->getKey()] ,$this->only(["customer_id","order_ref","amount","performer_id"]));
+		return array_merge(["payment_id" => $this->getKey()] ,$this->only(["customer_id","order_ref","amount","performer_id", "currency_code"]));
 	}
 
 

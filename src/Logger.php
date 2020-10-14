@@ -4,6 +4,8 @@ use \Mantonio84\pymMagicBox\Models\pmbLog;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
 use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxException;
 use \Illuminate\Support\Str;
+use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Support\Jsonable;
 use \Cache;
 
 class Logger {
@@ -69,19 +71,25 @@ class Logger {
 			return null;
 		}
 		
-		$attributes=array_intersect_key($params,array_flip(["method_name", "alias_id", "performer_id", "payment_id", "amount", "customer_id", "order_ref", "message", "details"]));		
+		$attributes=array_intersect_key($params,array_flip(["method_name", "alias_id", "performer_id", "payment_id", "amount", "customer_id", "order_ref", "message", "details", "currency_code"]));		
 		foreach ($params as $md){
                     if ($md instanceof pmbLoggable){
 			$attributes=array_merge(array_filter($md->getPmbLogData()),$attributes);
                     }
 		}
+                if (isset($attributes['details']) && !is_scalar($attributes['details'])){
+                    $attributes['details']=$this->tryJsonEncode($attributes['details']);
+                }
 		$attributes=array_filter($attributes,"is_scalar");
 		$attributes['level']=$level;
 		$attributes['merchant_id']=$merchant_id;
                 $attributes['session_id']=session()->getId();
 		if (isset($attributes['message'])){
-			$attributes['message']=\Str::limit($attributes['message'],255);
+                    $attributes['message']=\Str::limit($attributes['message'],255);
 		}		
+                if (isset($attributes['currency_code']) && !Engine::isValidCurrencyCode($attributes['currency_code'])){
+                    unset($attributes['currency_code']);
+                }
 		$a=new pmbLog($attributes);
 		$a->save();
 		return $a;
@@ -106,4 +114,22 @@ class Logger {
                 }
             }
 	}
+        
+    protected function tryJsonEncode($items, $default=null){
+        if (is_string($items)){
+            return $items;
+        }else if (is_array($items)) {
+            return json_encode($items);        
+        } elseif ($items instanceof Arrayable) {
+            return json_encode($items->toArray());
+        } elseif ($items instanceof Jsonable) {
+            return $items->toJson();
+        } elseif ($items instanceof \JsonSerializable) {
+            return json_encode($items);
+        } elseif ($items instanceof \Traversable) {
+            return json_encode(iterator_to_array($items));
+        }
+
+        return $default;
+    }
 }
