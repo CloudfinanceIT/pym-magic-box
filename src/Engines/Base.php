@@ -64,7 +64,7 @@ abstract class Base {
 			
 	public function aliasCreate(array $data, string $name, string $customer_id="", $expires_at=null){
 		if (!$this->supportsAliases()){
-                    report(paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]));
+                    throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
                     return null;
 		}
 		$ret=$this->sandbox("onProcessAliasCreate",[$data, $name, $customer_id, $expires_at]);
@@ -87,7 +87,7 @@ abstract class Base {
 	
 	public function aliasDelete(pmbAlias $alias){
 		if (!$this->supportsAliases()){
-                    report(paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]));
+                    throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
                     return false;
 		}
 		$ret=$this->sandbox("onProcessAliasDelete",[$alias]);
@@ -154,7 +154,7 @@ abstract class Base {
 	
 	public function confirm(pmbPayment $payment, array $data=[]){		
 		if (!$this->isConfirmable($payment)){
-                    report(paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]));
+                    throw paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
                     return $payment;
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
@@ -178,7 +178,7 @@ abstract class Base {
 		
 	public function refund(pmbPayment $payment, array $data=[]){		
 		if (!$this->isRefundable($payment)){
-                    report(paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]));
+                    throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
                     return $payment;
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
@@ -228,7 +228,7 @@ abstract class Base {
 		try {
 			$result=$this->{$funName}(...$args);
 		}catch (\Exception $e) {                                                
-                        report(pymMagicBoxException::wrap($e)->loggable("EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->performer])));                        
+                        throw pymMagicBoxException::wrap($e)->loggable("EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->performer]));                        
 			return null;
 		}
 		return $result;
