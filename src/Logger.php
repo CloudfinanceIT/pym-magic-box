@@ -7,6 +7,7 @@ use \Illuminate\Support\Str;
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use \Cache;
+use \Carbon\Carbon;
 
 class Logger {
 	
@@ -85,7 +86,7 @@ class Logger {
 		$attributes['merchant_id']=$merchant_id;
                 $attributes['session_id']=session()->getId();
 		if (isset($attributes['message'])){
-                    $attributes['message']=\Str::limit($attributes['message'],255);
+                    $attributes['message']=Str::limit($attributes['message'],255);
 		}		
                 if (isset($attributes['currency_code']) && !Engine::isValidCurrencyCode($attributes['currency_code'])){
                     unset($attributes['currency_code']);
@@ -102,15 +103,13 @@ class Logger {
                     $interval=explode(" ",$interval);
                 }
                 if (is_array($interval) && count($interval)==2){			
-                    $when=now()->sub(...$interval);
-                    $lwhen=now()->add(...$interval);
+                    $when=now()->sub(...$interval);                    
                 }else if ($interval instanceof \Carbon\CarbonInterval){
-                    $when=now()->sub($interval);
-                    $lwhen=now()->add($interval);
+                    $when=now()->sub($interval);                    
                 }
                 if (isset($when) && isset($lwhen)){
                     static::where("created_at","<=",$when)->delete();
-                    Cache::put("pymMagicBox.logRotatedAt",1,$lwhen);
+                    Cache::put("pymMagicBox.logRotatedAt",1,Carbon::tomorrow());
                 }
             }
 	}
