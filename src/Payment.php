@@ -7,6 +7,7 @@ class Payment extends BaseOnModel {
 	
         protected $modelClassName = pmbPayment::class;
     
+        
 	public $is_refundable=false;
         public $is_confirmable=false;
         
@@ -22,7 +23,7 @@ class Payment extends BaseOnModel {
 		}
                 $this->performer=$this->managed->performer;
 		$this->is_refundable=$this->engine()->isRefundable($this->managed);		
-                $this->is_confirmable=$this->engine()->isConfirmable($this->managed);
+                $this->is_confirmable=$this->engine()->isConfirmable($this->managed);                
                 $this->interactive=$interactive;               
                 if ($this->needsUserInteraction()){
                     pmbLogger::info($this->merchant_id, ["re" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Payment' class: user interaction required!"]);                
@@ -58,20 +59,20 @@ class Payment extends BaseOnModel {
             return $this->managed->alias;
         }
 			
-	public function confirm(array $other_data=[]){
-            if (!$this->is_confirmable){
-                return $this;
-            }
-            return $this->wrapPaymentModel($this->engine()->confirm($this->managed,$other_data));
+	public function confirm(array $other_data=[]){            
+            $o=$this->managed->confirmed;
+            $a=$this->engine()->confirm($this->managed,$other_data)->confirmed;
+            return (!$o && $a);
 	}
 	
 	public function refund(array $other_data=[]){
-            if (!$this->is_refundable){
-                return $this;
-            }
-            return  $this->wrapPaymentModel($this->engine()->refund($this->managed,$other_data));
+            $o=$this->managed->refunded;
+            $a=$this->engine()->refund($this->managed,$other_data)->refunded;
+            return (!$o && $a);
 	}
 	
+        
+        
 	protected function isReadableAttribute(string $name) : bool{
 		return true;
 	}

@@ -16,8 +16,7 @@ class Gateway extends Base {
     protected $engines=array();            
     	
     public function __construct(string $merchant_id){
-	$this->acceptMerchantId($merchant_id);
-        $this->currencyCode(config("pymMagicBox.default_currency_code","EUR"));
+	$this->acceptMerchantId($merchant_id);        
     }
     
     public function __get($name){

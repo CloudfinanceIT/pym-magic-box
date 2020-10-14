@@ -108,7 +108,7 @@ class Logger {
                     $when=now()->sub($interval);                    
                 }
                 if (isset($when) && isset($lwhen)){
-                    static::where("created_at","<=",$when)->delete();
+                    pmbLog::where("created_at","<=",$when)->delete();
                     Cache::put("pymMagicBox.logRotatedAt",1,Carbon::tomorrow());
                 }
             }

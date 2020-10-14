@@ -20,7 +20,7 @@ class pymMagicBoxException extends \Exception {
     protected $plog_level=null;
     protected $plog_params=[];
     
-    public function __construct(string $message = "", int $code = 0, \Throwable $previous = NULL): \Exception {        
+    public function __construct(string $message = "", int $code = 0, \Throwable $previous = NULL) {        
         parent::__construct($message, $code, $previous);        
         if (!empty($message)){
             $this->loggable(null, null, ["message" => class_basename($this)." ::: ".$this->getMessage(), "details" => $this->getTraceAsString()]);

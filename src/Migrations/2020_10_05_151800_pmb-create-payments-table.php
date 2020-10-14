@@ -27,7 +27,7 @@ class PmbCreatePaymentsTable extends Migration
             $table->unsignedBigInteger("performer_id");
             $table->unsignedInteger("alias_id")->nullable();
             $table->string("tracker")->nullable()->index();
-            $table->json("other_data");
+            $table->json("other_data")->nullable();
             $table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');
             $table->foreign("alias_id")->references('id')->on('pmb_aliases')->onDelete('set null')->onUpdate("cascade");
             

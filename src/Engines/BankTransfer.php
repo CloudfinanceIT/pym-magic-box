@@ -4,11 +4,10 @@ use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use Mantonio84\pymMagicBox\Exceptions\genericMethodException;
-use \Validator;
 use Illuminate\Http\File;
-use \Validator;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
+
 
 class BankTransfer extends Base {
     

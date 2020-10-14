@@ -64,7 +64,8 @@ abstract class Base {
 			
 	public function aliasCreate(array $data, string $name, string $customer_id="", $expires_at=null){
 		if (!$this->supportsAliases()){
-			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
+                    report(paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]));
+                    return null;
 		}
 		$ret=$this->sandbox("onProcessAliasCreate",[$data, $name, $customer_id, $expires_at]);
 		if (empty($ret)){
@@ -86,7 +87,8 @@ abstract class Base {
 	
 	public function aliasDelete(pmbAlias $alias){
 		if (!$this->supportsAliases()){
-			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
+                    report(paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]));
+                    return false;
 		}
 		$ret=$this->sandbox("onProcessAliasDelete",[$alias]);
 		if ($ret){
@@ -104,6 +106,7 @@ abstract class Base {
                 $this->validateCurrencyCodeOrFail($currency_code);
 		$payment=$this->resolveNewPaymentModel($order_ref,$amount,$currency_code,$customer_id,$this->performer);	
                 $action=null;
+                $unique=(config("pymMagicBox.unique_payments",true)===true);		
 		if (!$payment->billed){
 			$adata=null;
 			if ($alias instanceof pmbAlias){
@@ -135,7 +138,7 @@ abstract class Base {
 					event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"billed"));
 				}	                                
 			}else {
-				if (!$payment->exists){
+				if (!$payment->exists && $unique){
                                     $payment->save();		
 				}				
 				pmbLogger::warning($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged", "details" => $process]));
@@ -150,8 +153,9 @@ abstract class Base {
 	
 	
 	public function confirm(pmbPayment $payment, array $data=[]){		
-		if ($this->isConfirmable($payment)){
-			throw paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]);
+		if (!$this->isConfirmable($payment)){
+                    report(paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]));
+                    return $payment;
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
 		if ($payment->billed && (!$payment->confirmed || !$unique) && !$payment->refunded){
@@ -173,8 +177,9 @@ abstract class Base {
 	}
 		
 	public function refund(pmbPayment $payment, array $data=[]){		
-		if (!$this->isRefundable()){
-			throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]);
+		if (!$this->isRefundable($payment)){
+                    report(paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment, "details" => $data]));
+                    return $payment;
 		}
 		$unique=(config("pymMagicBox.unique_payments",true)===true);
 		if ($payment->billed && $payment->confirmed && (!$payment->refunded  || !$unique)){

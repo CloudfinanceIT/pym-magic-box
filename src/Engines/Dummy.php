@@ -31,7 +31,7 @@ class Dummy extends Base {
         return true;
     }
 
-    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {
+    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {       
         return new processPaymentResponse([
             "billed" => true,
             "confirmed" => true,            
@@ -45,7 +45,7 @@ class Dummy extends Base {
     }
 
     public function isRefundable(pmbPayment $payment): bool {
-        return true;
+        return $payment->billed && $payment->confirmed && !$payment->refuned;
     }
 
     public function supportsAliases(): bool {
@@ -53,7 +53,7 @@ class Dummy extends Base {
     }
     
     public function isConfirmable(pmbPayment $payment): bool {
-        return true;
+        return $payment->billed && !$payment->confirmed && !$payment->refuned;
     }
 
 }
