@@ -69,9 +69,7 @@ class Payment extends BaseOnModel {
             $o=$this->managed->refunded;
             $a=$this->engine()->refund($this->managed,$other_data)->refunded;
             return (!$o && $a);
-	}
-	
-        
+	}	        
         
 	protected function isReadableAttribute(string $name) : bool{
 		return true;

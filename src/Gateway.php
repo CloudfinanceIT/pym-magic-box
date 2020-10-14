@@ -37,6 +37,7 @@ class Gateway extends Base {
             $performer=pmbPerformer::with("method")->whereHas("method",function ($q) use ($name){
                 return $q->where("name",$name);
             })->merchant($this->merchant_id)->enabled()->first();              
+            
             if ($performer){
                 $this->engines[$name]=new Engine($this->merchant_id,$performer->getEngine());
             }
