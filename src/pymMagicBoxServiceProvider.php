@@ -24,6 +24,10 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
 
             $this->commands([
                     \Mantonio84\pymMagicBox\Console\PopulateEngines::class,
+                    \Mantonio84\pymMagicBox\Console\GrantMethod::class,
+                    \Mantonio84\pymMagicBox\Console\RevokeMethod::class,
+                    \Mantonio84\pymMagicBox\Console\GrantAllMethods::class,
+                    \Mantonio84\pymMagicBox\Console\RevokeAllMethods::class
             ]);				
             $this->publishes([
                 __DIR__.'/Config/pymMagicBox.php' => config_path('pymMagicBox.php'),                    

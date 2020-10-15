@@ -21,6 +21,16 @@ class pmbPerformer extends pmbBase{
 		return $this->belongsTo(pmbMethod::class);
 	}
 	
+         public function scopeOfMethods($query, $v){
+            if (is_array($v)){
+                return $query->whereIn("method_id",array_map("intval",$v));
+            }else if (is_int($v) || ctype_digit($v)){
+                return $query->where("method_id",intval($v));
+            }else if ($v instanceof pmbMethod){
+                return $query->where("method_id",$v->getKey());
+            }
+            return $query;
+	}
         
 	public function getPmbLogData(): array {
 		return [
