@@ -137,14 +137,13 @@ abstract class Base {
 					pmbLogger::warning($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged"]));
 					event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"billed"));
 				}	                                
-			}else {
-				if (!$payment->exists && $unique){
-                                    $payment->save();		
-				}				
+			}else {				
+                                $payment->save();										
 				pmbLogger::warning($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged", "details" => $process]));
 				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"billed"));				
 			}			
 		}else{
+                        $payment->save();	
 			pmbLogger::notice($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Already charged: skipped"]));
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"already-charged"));
 		}

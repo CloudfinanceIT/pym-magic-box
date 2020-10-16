@@ -9,14 +9,7 @@ class pmbPayment extends pmbBaseWithPerformer  {
 		
 	protected $guarded=["id"];        
 	protected $casts=["amount" => "float", "billed_at" => "datetime", "confirmed_at" => "datetime", "refunded_at" => "datetime", "other_data" => "array"];
-	protected $appends=["billed","confirmed","refunded"];
-	
-	
-	
-	public function toEditable(){
-		return new Payment($this->performer->merchant_id, $this);
-	}
-		
+	protected $appends=["billed","confirmed","refunded"];	
 	
 	
         public function alias(){

@@ -3,8 +3,9 @@ namespace Mantonio84\pymMagicBox\Engines;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
-use Mantonio84\pymMagicBox\Exceptions\genericMethodException;
-use Illuminate\Http\File;
+use \Mantonio84\pymMagicBox\Rules\IBAN;
+use \Mantonio84\pymMagicBox\Exceptions\genericMethodException;
+use \Illuminate\Http\File;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
 
@@ -83,7 +84,12 @@ class BankTransfer extends Base {
 
     protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {        
         if (!isset($data['home-iban']) || empty($data['home-iban'])){
-            return $this->throwAnError("Invalid home iban!");
+            return $this->throwAnError("Invalid home iban!");            
+        }
+        $data['home-iban']= str_replace(" ", "", $data['home-iban']);
+        $ibanValid=IBAN::validate($data['home-iban']);
+        if ($ibanValid!==true){
+            return $this->throwAnError($ibanValid);            
         }
         
         return new processPaymentResponse([

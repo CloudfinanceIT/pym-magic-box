@@ -7,6 +7,7 @@ use \Validator;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
 use Mantonio84\pymMagicBox\Classes\HttpClient;
+use \Mantonio84\pymMagicBox\Rules\RouteName;
 
 class AfoneCreditCard extends Base {
     
@@ -23,9 +24,9 @@ class AfoneCreditCard extends Base {
         return [
             "base_uri" => ["required","url"],
             "key" => ["required","string","alpha_num","size:20"],
-            "serialNumber" => ["required","string",'regex:/^(HOM|VAD)-[\d]{3}-[\d]{3}$/'],
+            "serial_number" => ["required","string",'regex:/^(HOM|VAD)-[\d]{3}-[\d]{3}$/'],
             "force3ds" => ["bail","nullable","integer","in:0,1"],
-            "after-3ds-route" => ["required","string"],
+            "after-3ds-route" => ["required","string", new RouteName],
         ];
         
     }
@@ -36,7 +37,7 @@ class AfoneCreditCard extends Base {
         }
         $process=$this->httpClient()->post("/rest/alias/tokenCreate", $this->withBaseData([
             "tokenRef" => $data['tokenRef'],
-            "aliasRer" => $name,
+            "aliasRef" => $name,
         ]));
         return $process['alias'];
     }
@@ -155,7 +156,7 @@ class AfoneCreditCard extends Base {
     protected function generateCustomerForm(pmbPayment $payment, array $data){
         $ret=array();
         if (isset($data['customer']) && is_array($data['customer'])){
-            $ret=Arr::only($data['customer'],["customerRef","firstName","lastName","email","road","zipCode","city","country","phone","meetingDate"]);
+            $ret=array_filter(Arr::only($data['customer'],["customerRef","firstName","lastName","email","road","zipCode","city","country","phone","meetingDate"]));
         }
         if (!isset($ret['customerRef']) && !empty($payment->customer_id)){
             $ret['customerRef']=$payment->customer_id;

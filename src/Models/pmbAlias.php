@@ -23,8 +23,7 @@ class pmbAlias extends pmbBaseWithPerformer  {
 	public function toEditable(){
 		return new Alias($this->performer->merchant_id, $this);
 	}
-	
-	
+		
 	
 	public function getPmbLogData(): array {
             

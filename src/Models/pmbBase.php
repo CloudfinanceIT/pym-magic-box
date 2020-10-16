@@ -5,6 +5,10 @@ use \Illuminate\Database\Eloquent\Model;
 
 
 abstract class pmbBase extends Model implements pmbLoggable {
-	abstract public function getPmbLogData(): array;
+        abstract public function getPmbLogData(): array;
+    
+        public static function make(array $data=[]){
+            return new static($data);
+        }        	
 }
 	
