@@ -8,6 +8,7 @@ use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
 use Mantonio84\pymMagicBox\Classes\HttpClient;
 use \Mantonio84\pymMagicBox\Rules\RouteName;
+use Mantonio84\pymMagicBox\Rules\EqualsTo;
 
 class AfoneCreditCard extends Base {
     

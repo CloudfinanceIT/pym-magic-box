@@ -2,15 +2,18 @@
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
 use \Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Contracts\Support\Jsonable;
+use JsonSerializable;
+use \Illuminate\Support\Str;
 
-abstract class BaseOnModel extends Base implements pmbLoggable {
+
+abstract class BaseOnModel extends Base implements pmbLoggable, Arrayable, Jsonable, JsonSerializable {
         
         protected $modelClassName = "";
-	
-	protected abstract function isReadableAttribute(string $name): bool;
-	protected abstract function isWriteableAttribute(string $name, $value): bool;
+        protected $en;
         protected abstract function searchModel($ref);
-
+        
 	
 	public static function find(string $merchant_id, $ref){
 		
@@ -46,22 +49,43 @@ abstract class BaseOnModel extends Base implements pmbLoggable {
 	}
 	
 	public function __get($name){
-		if ($this->isReadableAttribute($name)){
-			return $this->managed->getAttribute($name);
-		}
+            $mt="getProp".ucfirst(Str::camel($name));
+            if (method_exists($this, $mt)){
+                return $this->{$mt}();
+            }
+            return $this->managed->getAttribute($name);	
 	}
 	
-	public function __set($name, $value){
-		if ($this->isWriteableAttribute($name,$value)){
-			$this->managed->setAttribute($name,$value);			
-		}
+        public function toArray() {
+            return $this->managed->toArray();
+        }
+        
+        public function __toString() {
+            return $this->toJson();
+        }
+        
+        public function toJson($options = 0) {
+            return $this->managed->toJson($options);
+        }
+        
+        public function jsonSerialize(){
+            return $this->toArray();
+        }
+        
+        protected function getPropEngine(){
+            return new Engine($this->merchant_id, $this->buildEngine());
+	}        
+        
+        protected function getPropMethod(){
+            return $this->performer->method;
 	}
-	
-	public function save(){
-		return $this->managed->save();
-	}
-	
-	public function delete(){
-		return $this->managed->delete();
-	}
+
+        
+          protected function buildEngine(){
+            if (is_null($this->en)){
+                $this->en=$this->performer->getEngine();
+            }
+            return $this->en;
+        }
+
 }

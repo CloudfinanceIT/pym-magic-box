@@ -16,28 +16,16 @@ class Alias extends BaseOnModel {
 		}	
                 $this->performer=$this->managed->performer;
 		pmbLogger::debug($this->merchant_id, ["re" => $this->managed, "al" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Alias' class"]);
-	}
-	
-	public function engine(){
-            return $this->performer->getEngine();
-	}
-	
-	public function method(){
-            return $this->performer->method;
-	}
+	}	
 	
 	public function delete(){
-		return $this->engine()->aliasDelete($this->managed);
+            return $this->engine()->aliasDelete($this->managed);
 	}
 	
-	protected function isReadableAttribute(string $name) : bool{
-		return true;
-	}
+        public function charge($amount, array $other_data=[], string $order_ref=""){
+            return $this->getPropEngine()->payWithAlias($amount,$this->managed, $other_data, $order_ref);
+        }
 	
-	protected function isWriteableAttribute(string $name, $value) : bool{
-		return ($name!="performer_id" && $name!="performer" && $name!="adata");
-	}
-   
         protected function searchModel($ref) {
             $q=pmbAlias::merchant($this->merchant_id)->notExpired();
             if (is_int($ref) || ctype_digit($ref)){

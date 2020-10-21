@@ -48,7 +48,11 @@ class processPaymentResponse implements Arrayable {
         }
         
         public function needsUserInteraction($w){
-            $this->interactive=($w instanceof \Illuminate\Http\Response) ? $w : response($w);
+            if (is_null($w) || $w === false){
+                $this->interactive=null;
+            }else{
+                $this->interactive=($w instanceof \Illuminate\Http\Response) ? $w : response($w);
+            }
             return $this;
         }
         

@@ -2,8 +2,11 @@
 namespace Mantonio84\pymMagicBox;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Logger as pmbLogger;
+use \Illuminate\Support\Str;
+use Illuminate\Contracts\Support\Responsable;
+use Illuminate\Http\JsonResponse;
 
-class Payment extends BaseOnModel {
+class Payment extends BaseOnModel implements Responsable {
 	
         protected $modelClassName = pmbPayment::class;
     
@@ -13,6 +16,7 @@ class Payment extends BaseOnModel {
         
         protected $interactive;
         protected $ir=false;
+       
         
 	public function __construct(string $merchant_id, $ref, $interactive=null){
 		$this->acceptMerchantId($merchant_id);
@@ -21,15 +25,14 @@ class Payment extends BaseOnModel {
 		}else{
                     $this->managed=$this->searchModelOrFail($ref);
 		}
-                $this->performer=$this->managed->performer;
-		$this->is_refundable=$this->engine()->isRefundable($this->managed);		
-                $this->is_confirmable=$this->engine()->isConfirmable($this->managed);                
+                $this->performer=$this->managed->performer;		      
                 $this->interactive=$interactive;               
+                $this->updateFlags();
                 if ($this->needsUserInteraction()){
                     pmbLogger::info($this->merchant_id, ["re" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Payment' class: user interaction required!"]);                
                 }else{
                     pmbLogger::debug($this->merchant_id, ["re" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Payment' class"]);                
-                }
+                }                
 	}
         
         public function needsUserInteraction(){
@@ -41,64 +44,64 @@ class Payment extends BaseOnModel {
                 return null;
             }
             if (!$this->ir){
-                pmbLogger::debug($this->merchant_id, ["re" => $this->managed, "pe" => $this->performer, "message" => "Payment user interaction readed"]);                
+                pmbLogger::debug($this->merchant_id, ["re" => $this->managed, "pe" => $this->performer, "message" => "Payment user interaction readed first time"]);                
                 $this->ir=true;
             }
             return $this->interactive;
-        }
-			
-	public function engine(){
-		return $this->performer->getEngine();
-	}
-	
-	public function method(){
-		return $this->performer->method;
-	}
+        }				
         
-        public function alias(){
+        protected function getPropAlias(){
             return $this->managed->alias;
+        }
+        
+        protected function getPropMandate(){
+            if (isset($this->managed->other_data["mandate"])){
+                $m=$this->managed->other_data["mandate"];
+                $cls=Str::start($m[0],"\Mantonio84\pymMagicBox\Models\pmbAfoneMandate");
+                return $cls::find($m[1]);
+            }
         }
 			
 	public function confirm(array $other_data=[]){            
             $o=$this->managed->confirmed;
-            $a=$this->engine()->confirm($this->managed,$other_data)->confirmed;
+            $a=$this->buildEngine()->confirm($this->managed,$other_data)->confirmed;
+            $this->updateFlags();
             return (!$o && $a);
 	}
 	
 	public function refund(array $other_data=[]){
             $o=$this->managed->refunded;
-            $a=$this->engine()->refund($this->managed,$other_data)->refunded;
+            $a=$this->buildEngine()->refund($this->managed,$other_data)->refunded;
+            $this->updateFlags();
             return (!$o && $a);
 	}	        
+        	
         
-	protected function isReadableAttribute(string $name) : bool{
-		return true;
-	}
-	
-	protected function isWriteableAttribute(string $name, $value) : bool{
-		return false;
-	}
-        
-        protected function wrapPaymentModel($ret){
-            if ($ret instanceof pmbPayment){
-                $this->managed=$ret;
-                $this->performer=$this->managed->performer;
+        protected function searchModel($ref) {
+            if (empty($ref)){
+                    return null;
             }
-            return $this;
-	}
 
-    protected function searchModel($ref) {
-        if (empty($ref)){
-                return null;
+            $q=pmbPayment::merchant($this->merchant_id);
+            if (is_int($ref) || ctype_digit($ref)){
+                    return $q->where("id",intval($ref))->first();
+            }else if (is_string($ref) && !empty($ref)) {
+                    return $q->where("order_ref",$ref)->first();
+            }
+            return null;		
         }
         
-        $q=pmbPayment::merchant($this->merchant_id);
-        if (is_int($ref) || ctype_digit($ref)){
-                return $q->where("id",intval($ref))->first();
-        }else if (is_string($ref) && !empty($ref)) {
-                return $q->where("order_ref",$ref)->first();
+        protected function updateFlags(){            
+            $this->is_refundable=$this->buildEngine()->isRefundable($this->managed);		
+            $this->is_confirmable=$this->buildEngine()->isConfirmable($this->managed);          
         }
-        return null;		
-    }
+
+        public function toResponse($request): \Symfony\Component\HttpFoundation\Response {
+            if ($this->needsUserInteraction()){
+                return $this->getUserInteraction();
+            }else{
+                return new JsonResponse($this->managed);
+            }
+        }
 
 }
