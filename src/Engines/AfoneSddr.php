@@ -35,11 +35,28 @@ class AfoneSddr extends Base {
     }
     
     protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
-        return [];
+		$iban=$this->validateIban(Arr::get($data,"iban"));				
+        return [
+			"iban" => $iban
+		];
     }
 
     protected function onProcessAliasDelete(pmbAlias $alias): bool {
-        return false;
+		$iban=$this->validateIban(Arr::get($alias->adata,"iban"));		
+		$mandate_id=intval(Arr::get($alias->adata,"mandate_id"));
+		if ($mandate_id>0){
+			$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($iban)->find($mandate_id);
+			if ($mandate){
+				if ($mandate->confirmed){
+					$this->httpClient()->post("/rest/sepa/mandate/disable",$this->withBaseData([
+						"rum" => $mandate->rum,
+						"transactionRef" => $mandate->first_transaction_ref;
+					]));
+				}
+				$mandate->delete();
+			}
+		}
+        return true;
     }
 
     protected function onProcessConfirm(pmbPayment $payment, array $data = array()): bool {
@@ -60,15 +77,17 @@ class AfoneSddr extends Base {
         if (!isset($data['label']) || empty($data['label'])){
             return $this->throwAnError("No SDD Label given!");            
         }
-        if (!isset($data['iban']) || empty($data['iban'])){
-            return $this->throwAnError("Invalid iban!");            
-        }
-        $data['iban']=str_replace(" ", "", $data['iban']);
-        $ibanValid=IBAN::validate($data['iban']);
-        if ($ibanValid!==true){
-            return $this->throwAnError($ibanValid);            
-        }
-        $mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->confirmed()->first();
+		$mandate=null;
+        if (empty($alias_data)){
+			$data['iban']=$this->validateIban(Arr::get($data,"iban"));
+			$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->confirmed()->first();
+		}else{
+			$data['iban']=$alias_data->adata['iban'];
+			$mandate_id=intval(Arr::get($alias_data->adata,"mandate_id"));
+			if ($mandate_id>0){
+				$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->confirmed()->find($mandate_id);
+			}
+		}
         if ($mandate){
             $this->log("INFO","Found SEPA mandate #".$mandate->getKey()." for IBAN ".$data['iban']);
             $mandate->touch();
@@ -118,16 +137,16 @@ class AfoneSddr extends Base {
             $this->log("INFO","No SEPA mandate found for IBAN ".$data['iban'].". Redirect to ".$process['actionUrl']);    
             $mandate=pmbAFoneMandate::ofPerformers($this->performer)->confirmed(false)->iban($data['iban'])->first();
             if (is_null($mandate)){
-                $mandate=new pmbAfoneMandate([
-                    "iban" => $data['iban'],
-                    "rum" => Arr::get($process,"sepaTransfer.rum"),
-                    "demande_signature_id" => $did,            
-                ]);
+                $mandate=pmbAfoneMandate::make(Arr::only($data,["iban"]))->performer()->associate($this->performer);
             }
-            
-            $mandate->performer()->associate($this->performer);
+			$mandate->rum=Arr::get($process,"sepaTransfer.rum",$mandate->rum);
+			$mandate->demande_signature_id=$did;	
+			$mandate->first_transaction_ref=$transactionRef;
             $mandate->save();
-            
+            if (!empty($alias_data)){
+				$alias_data->adata['mandate_id']=$mandate->getKey();
+				$alias_data->save();
+			}
             return processPaymentResponse::make([
                 "transaction_ref" => $transactionRef, 
                 "tracker" => "DID:".$did,
@@ -156,7 +175,7 @@ class AfoneSddr extends Base {
             return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Pending mandate record not found!");
         }
         $this->httpClient()->post("/rest/sepa/sdd/endCreate",$this->withBaseData([
-            "transactionRef" => $payment->transaction_ref,
+            "transactionRef" =>	$mandate->first_transaction_ref,
             "signId" => $did
         ]));        
         $mandate->confirmed=true;
@@ -185,7 +204,7 @@ class AfoneSddr extends Base {
     }
 
     public function supportsAliases(): bool {
-        return false;
+        return true;
     }
      
     protected function generateCustomerForm(pmbPayment $payment, array $data){
@@ -223,4 +242,16 @@ class AfoneSddr extends Base {
     protected function validateCurrencyCode(string $code) {    
         return (strtoupper($code)=="EUR");
     }
+	
+	protected function validateIban($iban){
+		if (!is_string($iban) || empty($iban)){
+			return $this->throwAnError("No iban given!");            
+		}
+		$iban=strtoupper(str_replace(" ", "", $iban));
+        $ibanValid=IBAN::validate($iban);
+        if ($ibanValid!==true){
+            return $this->throwAnError($ibanValid);            
+        }
+		return $iban;
+	}
 }

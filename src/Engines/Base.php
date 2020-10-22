@@ -108,20 +108,21 @@ abstract class Base {
                 $action=null;
                 $unique=(config("pymMagicBox.unique_payments",true)===true);		
 		if (!$payment->billed){
-			$adata=null;
-			if ($alias instanceof pmbAlias){
-                            $payment->alias()->associate($alias);
-				if ($this->supportsAliases()){
-					$adata=$alias->adata;
-				}else{
+			$usealias=false;			
+			if ($alias instanceof pmbAlias){					
+				if (!$this->supportsAliases()){
 					if (!$payment->exists){
 						$payment->save();		
 					}	
 					pmbLogger::alert($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Charging with alias not supported!"]));
-					return $payment;
+					return $payment;				
 				}
+				$usealias=true;				
 			}
-			$process=$this->sandbox("onProcessPayment",[$payment,$adata,$data]);
+			$process=$this->sandbox("onProcessPayment",[$payment, $usealias ? $alias : null, $data]);
+			if ($usealias){								
+				$payment->alias()->associate($alias);
+			}
 			if ($process instanceof processPaymentResponse){
                                 $action=$process->getUserInteraction();
 				$payment->forceFill($process->toArray());							

@@ -70,13 +70,13 @@ class AfoneCreditCard extends Base {
             $pd["tokenRef"] = $data['tokenRef'];            
             $process=$this->httpClient()->post("rest/payment/tokenDebit",$pd);            
         }else{
-            if (!isset($alias_data['aliasRef']) || empty($alias_data['aliasRef'])){
+            if (!isset($alias_data->adata['aliasRef']) || empty($alias_data->adata['aliasRef'])){
                 return $this->throwAnError("Invalid aliasRef!");
             }  
             if (!isset($data['cvv']) || empty($data['cvv']) || !ctype_digit($dat['cvv'])){
                 return $this->throwAnError("aliasDebit requires cvv code!");
             }  
-            $pd["alias"] = $alias_data['aliasRef'];
+            $pd["alias"] = $alias_data->adata['aliasRef'];
             $pd['ip'] = request()->ip();
             $pd['cvv'] = $data['cvv'];
             $process=$this->httpClient()->post("/rest/payment/aliasDebit",$pd);            

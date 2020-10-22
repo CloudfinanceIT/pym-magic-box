@@ -20,7 +20,8 @@ class PmbCreatePaymentsTable extends Migration
             $table->string("rum");            
             $table->dateTime("confirmed_at")->nullable();
             $table->integer("demande_signature_id");
-            $table->unsignedBigInteger("performer_id");            
+            $table->unsignedBigInteger("performer_id");     
+			$table->string("first_transaction_ref")->nullable();
             $table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');            		
             $table->unique(["iban","performer_id"]);
         });
