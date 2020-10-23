@@ -33,6 +33,6 @@ class PmbCreateAfoneMandatesTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('pmb_payments');
+        Schema::dropIfExists('pmb_afone_mandates');
     }
 }

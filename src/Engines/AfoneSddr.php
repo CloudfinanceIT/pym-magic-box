@@ -50,7 +50,7 @@ class AfoneSddr extends Base {
 				if ($mandate->confirmed){
 					$this->httpClient()->post("/rest/sepa/mandate/disable",$this->withBaseData([
 						"rum" => $mandate->rum,
-						"transactionRef" => $mandate->first_transaction_ref;
+						"transactionRef" => $mandate->first_transaction_ref
 					]));
 				}
 				$mandate->delete();
