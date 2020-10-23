@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Migrations\Migration;
 
-class PmbCreatePaymentsTable extends Migration
+class PmbCreateAfoneMandatesTable extends Migration
 {
     /**
      * Run the migrations.
@@ -20,8 +20,7 @@ class PmbCreatePaymentsTable extends Migration
             $table->string("rum");            
             $table->dateTime("confirmed_at")->nullable();
             $table->integer("demande_signature_id");
-            $table->unsignedBigInteger("performer_id");     
-			$table->string("first_transaction_ref")->nullable();
+            $table->unsignedBigInteger("performer_id");            
             $table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');            		
             $table->unique(["iban","performer_id"]);
         });
