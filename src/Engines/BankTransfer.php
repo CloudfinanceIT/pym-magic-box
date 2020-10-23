@@ -235,7 +235,7 @@ class BankTransfer extends Base {
                 "exceptions" => 1
         ]);
         
-        $params = new StdClass();
+        $params = new \StdClass();
         $params->user_name = $this->cfg("ocr-username");
         $params->license_code = $this->cfg("ocr-license-code");
         $inimage = new StdClass();
