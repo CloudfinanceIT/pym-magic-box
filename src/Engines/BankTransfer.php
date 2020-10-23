@@ -238,7 +238,7 @@ class BankTransfer extends Base {
         $params = new \StdClass();
         $params->user_name = $this->cfg("ocr-username");
         $params->license_code = $this->cfg("ocr-license-code");
-        $inimage = new StdClass();
+        $inimage = new \StdClass();
 
         $handle = fopen($filePath, 'r');
         $card_image = fread($handle, filesize($filePath));
