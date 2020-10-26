@@ -114,7 +114,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
     
     public function client(){        
         if (is_null($this->managed)){
-            $this->managed=\GuzzleHttp\Client(array_merge(is_array($this->options) ? $this->options : [],[            
+            $this->managed=new \GuzzleHttp\Client(array_merge(is_array($this->options) ? $this->options : [],[            
                 'base_uri' => $this->base_uri,                                
             ]));
         }
