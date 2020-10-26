@@ -182,7 +182,11 @@ class AfoneCreditCard extends Base {
   
     
     protected function withBaseData(array $data){
-        return array_merge($data,Arr::only($this->config,["key","serialNumber"]),["origin" => url("")]);
+        return array_merge($data,[
+				"key" => $this->cfg("key"),
+				"serialNumber" => $this->cfg("serial_number"),
+				"origin" => url("")
+		]);
     }
     
     protected function generateTransactionRef(){
