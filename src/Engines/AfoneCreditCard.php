@@ -106,6 +106,7 @@ class AfoneCreditCard extends Base {
     
     public function listenConfirm3ds(array $request){
         $request=array_change_key_case($request, CASE_LOWER);
+		$this->log("DEBUG","3DS confirmation listen: begin",json_encode($request));
         if (!isset($request['md'])){
             return response("Missing data (01)",400);
         }
