@@ -237,7 +237,7 @@ abstract class Base {
 	protected function getListenURL(string $action, array $params=[], bool $absolute=true){
                 if (!empty($action)){
                     $funName="listen".ucfirst(Str::camel($action));
-                    if (config("pymMagicBox.auto_register_routes",true)===true && method_exists($this, $funName)){	
+                    if (method_exists($this, $funName)){	
                         return route("pym-magic-box", array_merge($params,["merchant" => $this->performer->merchant_id, "method" => Str::kebab($this->performer->method->name), "action" => $action, $absolute]));
                     }
                 }

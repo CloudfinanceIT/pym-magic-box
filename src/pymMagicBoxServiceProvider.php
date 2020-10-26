@@ -13,14 +13,14 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
      * @return void
      */
     public function boot() {			
+		$rpath=base_path('routes/pymMagicBox.php');
+
+        if (is_file($rpath)){
+            $this->loadRoutesFrom($rpath);
+        }
+		
         if ($this->app->runningInConsole()) {
-            $this->loadMigrationsFrom(__DIR__.'/Migrations');		
-
-            $rpath=base_path('routes/pymMagicBox.php');
-
-            if (is_file($rpath)){
-                $this->loadRoutesFrom($rpath);
-            }
+            $this->loadMigrationsFrom(__DIR__.'/Migrations');		         
 
             $this->commands([
                     \Mantonio84\pymMagicBox\Console\PopulateEngines::class,
