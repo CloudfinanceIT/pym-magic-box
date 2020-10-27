@@ -7,7 +7,7 @@ class Alias extends BaseOnModel {
 	
         protected $modelClassName = pmbAlias::class;
 		
-	public static function ofCustomer(string $merchant_id, string $customer_id){
+	public static function ofCustomer(string $customer_id){
 		$ret=collect();				
 		$data=pmbAlias::with("performer")->notExpired()->where("customer_id", $customer_id)->get();		
 		foreach ($data as $rec){
