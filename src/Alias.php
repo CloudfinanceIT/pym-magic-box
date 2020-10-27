@@ -8,7 +8,7 @@ class Alias extends BaseOnModel {
     protected $modelClassName = pmbAlias::class;
 	
 	public static function findMany(string $merchant_id, string $customer_id){
-		$q=static::createSearchQuery($this->merchant_id,$customer_id);
+		$q=static::createSearchQuery($merchant_id,$customer_id);
 		$ret=collect();
 		if (!empty($q)){
 			$data=$q->get();
