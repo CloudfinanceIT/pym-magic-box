@@ -5,7 +5,20 @@ use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 
 class Alias extends BaseOnModel {
 	
-        protected $modelClassName = pmbAlias::class;
+    protected $modelClassName = pmbAlias::class;
+	
+	public static function findMany(string $merchant_id, string $customer_id){
+		$q=static::createSearchQuery($this->merchant_id,$customer_id);
+		$ret=collect();
+		if (!empty($q)){
+			$data=$q->get();
+			foreach ($data as $rec){
+				$ret[]=new static($merchant_id,$rec);
+			}
+		} 
+		return $ret;
+	}
+	
 			
 	public function __construct(string $merchant_id, $ref){
 		$this->acceptMerchantId($merchant_id);
@@ -27,13 +40,18 @@ class Alias extends BaseOnModel {
         }
 	
         protected function searchModel($ref) {
-            $q=pmbAlias::merchant($this->merchant_id)->notExpired();
-            if (is_int($ref) || ctype_digit($ref)){
-                return $q->where("id",intval($ref))->first();
-            }else if (is_string($ref) && !empty($ref)){
-                return $q->where("name",$ref)->first();
-            }
-            return null;
+            $q=static::createSearchQuery($this->merchant_id,$ref);
+			return is_null($q) ? null : $q->first();            
         }
+		
+		protected static function createSearchQuery($merchant_id, $ref){
+			$q=pmbAlias::merchant($merchant_id)->notExpired();
+            if (is_int($ref) || ctype_digit($ref)){
+                return $q->where("id",intval($ref));
+            }else if (is_string($ref) && !empty($ref)){
+                return $q->where("name",$ref);
+            }
+			return null;
+		}
 
 }
