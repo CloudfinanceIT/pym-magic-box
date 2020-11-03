@@ -12,7 +12,8 @@ class pymMagicBoxException extends \Exception {
         if ($e instanceof pymMagicBoxException){
             return $e;
         }else{
-            return new static($e->getMessage(),$e->getCode(),$e->getPrevious());
+			$c=$e->getCode();
+            return new static($e->getMessage(),is_int($c) ? $c : 0,$e->getPrevious());
         }
     }
     
