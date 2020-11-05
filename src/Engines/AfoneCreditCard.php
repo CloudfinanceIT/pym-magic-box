@@ -58,7 +58,7 @@ class AfoneCreditCard extends Base {
 
     protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {
         $pd=$this->withBaseData([                
-            "amount" => $payment->amount*100,
+            "amount" => round($payment->amount*100),
             "transactionRef" => $this->generateTransactionRef(),
             "customer" => json_encode($this->generateCustomerForm($payment, $data)),
             "force3ds" => $this->cfg("force3ds",0),
