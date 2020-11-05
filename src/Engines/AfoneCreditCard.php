@@ -58,10 +58,11 @@ class AfoneCreditCard extends Base {
 
     protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {
         $pd=$this->withBaseData([                
-            "amount" => $payment->amount*100,
+            "amount" => roun$payment->amount*100,
             "transactionRef" => $this->generateTransactionRef(),
             "customer" => $this->generateCustomerForm($payment, $data),
             "force3ds" => $this->cfg("force3ds",0),
+			"ip" => request()->ip()
         ]);            
         if (empty($alias_data)){
             if (!isset($data['tokenRef']) || empty($data['tokenRef'])){
@@ -76,8 +77,7 @@ class AfoneCreditCard extends Base {
             if (!isset($data['cvv']) || empty($data['cvv']) || !ctype_digit($dat['cvv'])){
                 return $this->throwAnError("aliasDebit requires cvv code!");
             }  
-            $pd["alias"] = $alias_data->adata['aliasRef'];
-            $pd['ip'] = request()->ip();
+            $pd["alias"] = $alias_data->adata['aliasRef'];            
             $pd['cvv'] = $data['cvv'];
             $process=$this->httpClient()->post("/rest/payment/aliasDebit",$pd);            
         }        
