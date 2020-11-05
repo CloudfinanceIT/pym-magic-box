@@ -60,7 +60,7 @@ class AfoneCreditCard extends Base {
         $pd=$this->withBaseData([                
             "amount" => $payment->amount*100,
             "transactionRef" => $this->generateTransactionRef(),
-            "customer" => $this->generateCustomerForm($payment, $data),
+            "customer" => json_encode($this->generateCustomerForm($payment, $data)),
             "force3ds" => $this->cfg("force3ds",0),
 			"ip" => request()->ip()
         ]);            
