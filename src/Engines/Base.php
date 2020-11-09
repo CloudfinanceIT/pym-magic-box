@@ -251,7 +251,7 @@ abstract class Base {
             return false;
         }
         
-        protected function log($level, string $message, string $details="", array $lg=[]){
+        protected function log($level, string $message, $details="", array $lg=[]){
             return pmbLogger::make()->write($level,$this->merchant_id,array_merge($lg,["message" => $message, "details" => $details, "pe" => $this->performer]));
         }
         
