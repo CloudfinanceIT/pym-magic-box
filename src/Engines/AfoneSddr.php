@@ -182,7 +182,7 @@ class AfoneSddr extends Base {
         if (!$mandate->save()){
              return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Cannot save mandate record!");
         }
-        $this->log("INFO","SEPA Mandate signature process completed successfully",["py" => $payment]);
+        $this->log("INFO","SEPA Mandate signature process completed successfully","",["py" => $payment]);
         $py=$this->confirm($payment, ["mandate" => $mandate]);        
         if ($py->confirmed){            
             return redirect()->route($this->config["after-mandate-sign-route"],["payment" => $py->getKey(), "merchant" => $this->merchant_id]);
