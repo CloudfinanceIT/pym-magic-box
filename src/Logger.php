@@ -86,7 +86,7 @@ class Logger {
 		$attributes['merchant_id']=$merchant_id;
                 $attributes['session_id']=session()->getId();
 		if (isset($attributes['message'])){
-                    $attributes['message']=Str::limit($attributes['message'],255);
+                    $attributes['message']=Str::limit($attributes['message'],250);
 		}		
                 if (isset($attributes['currency_code']) && !Engine::isValidCurrencyCode($attributes['currency_code'])){
                     unset($attributes['currency_code']);

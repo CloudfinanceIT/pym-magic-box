@@ -18,6 +18,7 @@ class PmbCreateAfoneMandatesTable extends Migration
             $table->timestamps();			
             $table->string("iban",32)->index();
             $table->string("rum");            
+			$table->string("first_transaction_ref")->nullable();
             $table->dateTime("confirmed_at")->nullable();
             $table->integer("demande_signature_id");
             $table->unsignedBigInteger("performer_id");            

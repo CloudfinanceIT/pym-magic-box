@@ -37,7 +37,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
     }  
     
     public function withLogData(array $w){
-        $this->logdata=$w;
+        $this->logdata=array_merge($this->logdata,$w);
         return $this;
     }
     
