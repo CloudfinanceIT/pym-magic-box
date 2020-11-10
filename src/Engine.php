@@ -110,7 +110,7 @@ class Engine extends Base implements pmbLoggable {
 			try {
 				$ret=call_user_func_array([$this->managed,$method],$params);
 			}catch (\Exception $e) {
-                                throw pymMagicBoxException::wrap($e)->loggable("EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->managed->performer]));                        
+                                throw pymMagicBoxException::wrap($e)->loggable("EMERGENCY",$this->merchant_id,array_merge($arguments,["performer" => $this->managed->performer]));                        
                                 return null;
 			}
 			if ($ret instanceof pmbAlias){
