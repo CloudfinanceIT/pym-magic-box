@@ -55,7 +55,7 @@ class Engine extends Base implements pmbLoggable {
         
         public function pay($amount, array $other_data=[], string $customer_id="", string $order_ref=""){ 		
                 $amount=$this->parseAmountAndCurrencyCode($amount);
-		pmbLogger::debug($this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
+		pmbLogger::info($this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
 		return $this->wrapPayResponse($this->managed->pay($amount[0],$amount[1],null,$customer_id,$order_ref,$other_data));
 	}
 	
@@ -79,7 +79,7 @@ class Engine extends Base implements pmbLoggable {
                     $alias=null;
                 }
             
-		pmbLogger::debug($this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
+		pmbLogger::info($this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
 		return $this->wrapPayResponse($this->managed->pay($amount[0],$amount[1],$alias,$alias->customer_id,$order_ref,$other_data));
 	}
 	
