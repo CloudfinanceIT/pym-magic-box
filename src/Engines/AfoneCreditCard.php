@@ -79,7 +79,7 @@ class AfoneCreditCard extends Base {
             "customer" => json_encode($customer),
 			"browser" => json_encode($browser),
             "force3ds" => $this->cfg("force3ds",0),
-			"ip" => request()->ip(),
+			"ip" => request()->qualifiedIp(),
 			"redirection3DSV2Url" => $this->getListenURL("confirm-3ds",$confirm_3ds_data)
         ]);            
 		$cardholder=$this->extractDataForm($data,"cardholder",["chAccDate","chAccChange","chAccPwChange","shipAddressUsage","txnActivityDay","txnActivityYear","provisionAttemptsDay","nbPurchaseAccount","suspiciousAccActivity","shipNameIndicator"]);

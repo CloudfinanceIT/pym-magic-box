@@ -13,6 +13,24 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
      * @return void
      */
     public function boot() {			
+		Request::macro("qualifiedIp", function (){			
+			$IPAddress=$this->ip();
+			if (config("app.env")=="local" && !filter_var($IPAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ){
+				if (!\Cache::has("external_ip")){
+					$realIP = file_get_contents("http://ipecho.net/plain");
+					if (filter_var($realIP,FILTER_VALIDATE_IP)){
+						\Cache::put("external_ip",$realIP,now()->addHour());
+						return $realIP;
+					}else{
+						return $IPAddress;
+					}					
+				}else{
+					return \Cache::get("external_ip");
+				}
+			}
+			return $IPAddress;
+		});
+	
 		$rpath=base_path('routes/pymMagicBox.php');
 
         if (is_file($rpath)){

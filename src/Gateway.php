@@ -13,7 +13,7 @@ class Gateway extends Base {
 	return new static($merchant_id);
     }
     
-    protected $engines=array();            
+    protected static $engines=array();            
     	
     public function __construct(string $merchant_id){
 	$this->acceptMerchantId($merchant_id);        
@@ -32,17 +32,18 @@ class Gateway extends Base {
     }
     
     public function build($name){
-        if (!array_key_exists($name, $this->engines)){                  
-            $this->engines[$name]=null;
+		$kr=md5($this->merchant_id.":::".$name);
+        if (!array_key_exists($kr, self::$engines)){                  
+            self::$engines[$kr]=null;
             $performer=pmbPerformer::with("method")->whereHas("method",function ($q) use ($name){
                 return $q->where("name",$name);
             })->merchant($this->merchant_id)->enabled()->first();              
             
             if ($performer){
-                $this->engines[$name]=new Engine($this->merchant_id,$performer->getEngine());
+               self::$engines[$kr]=new Engine($this->merchant_id,$performer->getEngine());
             }
         }        
-        return $this->engines[$name];
+        return self::$engines[$kr];
     }
         
 }   

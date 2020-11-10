@@ -156,23 +156,17 @@ abstract class Base {
 		if (!$this->isConfirmable($payment)){
                     throw paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
                     return $payment;
-		}
-		$unique=(config("pymMagicBox.unique_payments",true)===true);
-		if ($payment->billed && (!$payment->confirmed || !$unique) && !$payment->refunded){
-			$success=$this->sandbox("onProcessConfirm",[$payment,$data]);
-			if ($success){
-				$payment->confirmed=true;	
-				$payment->save();
-				pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully confirmed"]);
-				event(new \Mantonio84\pymMagicBox\Events\Payment\Confirmed($this->merchant_id,$payment));
-			}else{
-				pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully confirmed"]);
-				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirmed"));
-			}
+		}		
+		$success=$this->sandbox("onProcessConfirm",[$payment,$data]);
+		if ($success){
+			$payment->confirmed=true;	
+			$payment->save();
+			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully confirmed"]);
+			event(new \Mantonio84\pymMagicBox\Events\Payment\Confirmed($this->merchant_id,$payment));
 		}else{
-			pmbLogger::notice($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for confirmation: skipped", "details" => $payment->only(["billed","confirmed","refunded"])]);
-			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirm-unsuitable"));
-		}
+			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully confirmed"]);
+			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirmed"));
+		}		
 		return $payment;
 	}
 		
@@ -180,23 +174,17 @@ abstract class Base {
 		if (!$this->isRefundable($payment)){
                     throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
                     return $payment;
-		}
-		$unique=(config("pymMagicBox.unique_payments",true)===true);
-		if ($payment->billed && $payment->confirmed && (!$payment->refunded  || !$unique)){
-			$success=$this->sandbox("onProcessRefund",[$payment,$data]);
-			if ($success){
-				$payment->refunded=true;		
-				$payment->save();
-				pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded"]);
-				event(new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment));
-			}else{
-				pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully refunded"]);
-				event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refunded"));
-			}
+		}		
+		$success=$this->sandbox("onProcessRefund",[$payment,$data]);
+		if ($success){
+			$payment->refunded=true;		
+			$payment->save();
+			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded"]);
+			event(new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment));
 		}else{
-			pmbLogger::notice($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Not suitable for refund: skipped", "details" => $payment->only(["billed","confirmed","refunded"])]);
-			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refund-unsuitable"));
-		}
+			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully refunded"]);
+			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refunded"));
+		}		
 		return $payment;
 	}
 	
