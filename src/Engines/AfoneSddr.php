@@ -154,6 +154,11 @@ class AfoneSddr extends Base {
             ])->needsUserInteraction(response()->redirectTo($process['actionUrl']));
         }
     }
+	
+	public function hasValidMandate($iban){
+		$iban=$this->validateIban($iban);
+		return pmbAfoneMandate::ofPerformers($this->performer)->iban($iban)->exists();
+	}
     
     public function listenMandateSigned(array $request){
         $request=array_change_key_case($request, CASE_LOWER);

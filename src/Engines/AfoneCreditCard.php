@@ -66,7 +66,7 @@ class AfoneCreditCard extends Base {
 		if (empty($customer)){
 			return $this->throwAnError("No customer data given!");
         }   
-		$browser=$this->generateCustomerForm($data);
+		$browser=$this->generateBrowserForm($data);
 		if (empty($browser)){
 			return $this->throwAnError("No browser data given!");
         }   
