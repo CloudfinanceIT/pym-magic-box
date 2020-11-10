@@ -10,7 +10,7 @@ abstract class Base {
     protected $performer=null;	    
     protected $managed=null;
     
-    protected static function isUuid($value) {
+    public static function isUuid($value) {
         if (! is_string($value)) {
             return false;
         }

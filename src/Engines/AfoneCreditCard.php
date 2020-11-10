@@ -167,7 +167,7 @@ class AfoneCreditCard extends Base {
 		$a=array_merge(array_fill_keys($keys,null),Arr::only($request,$keys));
 		$py=$this->confirm($payment,["3ds" => $a]);
 		if ($py->confirmed){            
-			return redirect()->route($this->config["after-3ds-route"],["payment" => $py->getKey(), "merchant" => $this->merchant_id]);
+			return redirect()->route($this->config["after-3ds-route"],["pymMagicBoxPayment" => $this->merchant_id."-".$py->getKey()]);
 		}else{
 			return response("3ds confirmation failed!",503);
 		}

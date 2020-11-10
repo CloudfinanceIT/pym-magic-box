@@ -54,6 +54,10 @@ class Payment extends BaseOnModel implements Responsable {
             return $this->managed->alias;
         }
         
+		protected function getPropResolverKey(){
+			return $this->merchant_id."-".$this->managed->getKey();
+		}
+		
         protected function getPropMandate(){
             if (isset($this->managed->other_data["mandate"])){
                 $m=$this->managed->other_data["mandate"];

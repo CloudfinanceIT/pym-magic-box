@@ -190,7 +190,7 @@ class AfoneSddr extends Base {
         $py=$this->confirm($payment, ["mandate" => $mandate]);        
         if ($py->confirmed){            
 			$this->log("INFO","SEPA Mandate signature process completed successfully","",["py" => $payment]);
-            return redirect()->route($this->config["after-mandate-sign-route"],["payment" => $py->getKey(), "merchant" => $this->merchant_id]);
+            return redirect()->route($this->config["after-mandate-sign-route"],["pymMagicBoxPayment" => $this->merchant_id."-".$py->getKey()]);
         }else{
             return response("Mandate sign confirmation failed!",503);
         }
