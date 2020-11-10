@@ -62,7 +62,7 @@ class AfoneSddr extends Base {
     protected function onProcessConfirm(pmbPayment $payment, array $data = array()): bool {
         $md=$payment->other_data['mandate'];
         $mandate=pmbAfoneMandate::ofPerformers($this->performer)->confirmed()->find(intval($md[1]));
-        if (!is_null($mandate)){
+        if (is_null($mandate)){
             return $this->throwAnError("SEPA Mandate not found!","EMERGENCY",["py" => $payment]);
         }
         if ($payment->tracker!="DID:".$mandate->demande_signature_id){
