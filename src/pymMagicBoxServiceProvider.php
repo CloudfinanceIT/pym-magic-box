@@ -3,7 +3,7 @@
 namespace Mantonio84\pymMagicBox;
 
 use Illuminate\Support\ServiceProvider;
-
+use Illuminate\Http\Request;
 
 class pymMagicBoxServiceProvider extends ServiceProvider {
 
