@@ -9,7 +9,7 @@ use \Mantonio84\pymMagicBox\Exceptions\httpClientException;
 class HttpClient extends \Mantonio84\pymMagicBox\Base {
     
     protected $base_uri="";
-    public $options=["timeout" => 2.0];
+    public $options=[];
     protected $rules=false;   
     protected $logdata=[];    
     protected $methods=["get","delete","head","options","path","post","put"];
