@@ -61,7 +61,7 @@ class AfoneCreditCard extends Base {
         return true;
    }
 
-    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {
+    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array(), string $customer_id): processPaymentResponse {
 		$customer=$this->generateCustomerForm($payment, $data);
 		if (empty($customer)){
 			return $this->throwAnError("No customer data given!");

@@ -82,7 +82,7 @@ class BankTransfer extends Base {
         
     }
 
-    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {        
+    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array(), string $customer_id): processPaymentResponse {        
         if (!isset($data['home-iban']) || empty($data['home-iban'])){
             return $this->throwAnError("Invalid home iban!");            
         }

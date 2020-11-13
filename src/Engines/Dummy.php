@@ -31,7 +31,7 @@ class Dummy extends Base {
         return true;
     }
 
-    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {       
+    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array(), string $customer_id): processPaymentResponse {       
         return new processPaymentResponse([
             "billed" => true,
             "confirmed" => true,            

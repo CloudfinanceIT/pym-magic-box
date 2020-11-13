@@ -36,6 +36,10 @@ class AfoneSddr extends Base {
     
     protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
 		$iban=$this->validateIban(Arr::get($data,"iban"));				
+		$customer_id=trim($customer_id);
+		if (empty($customer_id)){
+			return $this->throwAnError("customer_id is required!");            
+		}
         return [
 			"iban" => $iban
 		];
@@ -73,21 +77,29 @@ class AfoneSddr extends Base {
         return true;        
     }
 
-    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array()): processPaymentResponse {
+    protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = array(), string $customer_id): processPaymentResponse {		
         if (!isset($data['label']) || empty($data['label'])){
             return $this->throwAnError("No SDD Label given!");            
         }
 		$mandate=null;
         if (empty($alias_data)){
+			$customer_id=trim($customer_id);			
+			if (empty($customer_id)){
+				return $this->throwAnError("customer_id is required!");            
+			}
 			$data['iban']=$this->validateIban(Arr::get($data,"iban"));
-			$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->confirmed()->first();
+			$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->customer($customer_id)->confirmed()->first();
 		}else{
 			$data['iban']=$alias_data->adata['iban'];
 			$mandate_id=intval(Arr::get($alias_data->adata,"mandate_id"));
 			if ($mandate_id>0){
-				$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->confirmed()->find($mandate_id);
+				$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->customer($customer_id)->confirmed()->find($mandate_id);
 			}
-		}
+			$customer_id=trim($alias_data->customer_id);
+			if (empty($customer_id)){
+				return $this->throwAnError("alias customer_id is required!");            
+			}
+		}		
         if ($mandate){
             $this->log("INFO","Found SEPA mandate #".$mandate->getKey()." for IBAN ".$data['iban']);
             $mandate->touch();
@@ -135,9 +147,9 @@ class AfoneSddr extends Base {
                 return $this->throwAnError("CRITICAL"."Mandate signature failed: no signature_id in action url!");
             }
             $this->log("INFO","No SEPA mandate found for IBAN ".$data['iban'].". Redirect to ".$process['actionUrl']);    
-            $mandate=pmbAFoneMandate::ofPerformers($this->performer)->confirmed(false)->iban($data['iban'])->first();
+            $mandate=pmbAFoneMandate::ofPerformers($this->performer)->confirmed(false)->iban($data['iban'])->customer($customer_id)->first();
             if (is_null($mandate)){
-                $mandate=pmbAfoneMandate::make(Arr::only($data,["iban"]))->performer()->associate($this->performer);
+                $mandate=pmbAfoneMandate::make(["iban" => $data['iban'], "customer_id" => $customer_id])->performer()->associate($this->performer);
             }
 			$mandate->rum=Arr::get($process,"sepaTransfer.rum",$mandate->rum);
 			$mandate->demande_signature_id=$did;	
@@ -155,9 +167,9 @@ class AfoneSddr extends Base {
         }
     }
 	
-	public function hasValidMandate($iban){
+	public function hasValidMandate($iban, $customer_id){
 		$iban=$this->validateIban($iban);
-		return pmbAfoneMandate::ofPerformers($this->performer)->iban($iban)->exists();
+		return pmbAfoneMandate::ofPerformers($this->performer)->iban($iban)->customer($customer_id)->exists();
 	}
     
     public function listenMandateSigned(array $request){

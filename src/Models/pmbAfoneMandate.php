@@ -31,5 +31,8 @@ class pmbAfoneMandate extends pmbBaseWithPerformer  {
 	public function getPmbLogData(): array {            
 		return ["performer_id" => $this->performer_id];
 	}
-
+	
+	public function scopeCustomer($query, string $value){
+		return $query->where("customer_id",$value);
+	}
 }

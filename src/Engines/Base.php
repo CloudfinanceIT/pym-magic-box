@@ -23,7 +23,7 @@ abstract class Base {
 	public abstract function supportsAliases(): bool;
         public abstract function isConfirmable(pmbPayment $payment): bool;
 	protected abstract function validateConfig(array $config);
-	protected abstract function onProcessPayment(pmbPayment $payment, $alias_data, array $data=[]): processPaymentResponse;
+	protected abstract function onProcessPayment(pmbPayment $payment, $alias_data, array $data=[], string $customer_id): processPaymentResponse;
 	protected abstract function onProcessRefund(pmbPayment $payment, array $data=[]): bool;
 	protected abstract function onProcessConfirm(pmbPayment $payment, array $data=[]): bool;
 	protected abstract function onProcessAliasCreate(array $data, string $name, string $customer_id="", $expires_at=null): array;	
@@ -119,7 +119,7 @@ abstract class Base {
 				}
 				$usealias=true;				
 			}
-			$process=$this->sandbox("onProcessPayment",[$payment, $usealias ? $alias : null, $data]);
+			$process=$this->sandbox("onProcessPayment",[$payment, $usealias ? $alias : null, $data, $customer_id]);
 			if ($usealias){								
 				$payment->alias()->associate($alias);
 			}

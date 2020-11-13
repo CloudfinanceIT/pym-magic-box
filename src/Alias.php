@@ -28,7 +28,7 @@ class Alias extends BaseOnModel {
 	}	
 	
 	public function delete(){
-            return $this->getPropEngine()->aliasDelete($this->managed);
+            return $this->buildEngine()->aliasDelete($this->managed);
 	}
 	
         public function charge($amount, array $other_data=[], string $order_ref=""){
