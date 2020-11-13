@@ -9,7 +9,16 @@ use Illuminate\Http\JsonResponse;
 class Payment extends BaseOnModel implements Responsable {
 	
         protected $modelClassName = pmbPayment::class;
-    
+		
+	public static function ofCustomer(string $merchant_id, string $customer_id){
+		$ret=collect();				
+		$data=pmbPayment::merchant($merchant_id)->where("customer_id", $customer_id)->get();		
+		foreach ($data as $rec){
+				$ret[]=new static($merchant_id,$rec);
+		}		
+		return $ret;
+	}
+	
         
 	public $is_refundable=false;
         public $is_confirmable=false;
