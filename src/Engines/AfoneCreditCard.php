@@ -100,7 +100,7 @@ class AfoneCreditCard extends Base {
             if (!isset($alias_data->adata['aliasRef']) || empty($alias_data->adata['aliasRef'])){
                 return $this->throwAnError("Invalid aliasRef!");
             }  
-            if (!isset($data['cvv']) || empty($data['cvv']) || !ctype_digit($dat['cvv'])){
+            if (!isset($data['cvv']) || empty($data['cvv']) || !ctype_digit($data['cvv'])){
                 return $this->throwAnError("aliasDebit requires cvv code!");
             }  
             $pd["alias"] = $alias_data->adata['aliasRef'];            
