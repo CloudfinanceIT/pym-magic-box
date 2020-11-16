@@ -75,7 +75,7 @@ class BankTransfer extends Base {
         $value=false;
         $i=0;
         while ($i<count($parsers) && !$value){
-            $text=call_user_func([$this,$parsers[$i]],$receiptFile->path());
+            $text=call_user_func([$this,$parsers[$i]],$receiptFile->path(), $payment);
             $value=$this->validateExtractedTextAgaintPayment($text, $payment);
             $i++;
         }
@@ -209,7 +209,7 @@ class BankTransfer extends Base {
         return true;
     }
     
-    protected function extractTextUsingParser($filePath){
+    protected function extractTextUsingParser($filePath, pmbPayment $payment){
         try {
             $parser = new \Smalot\PdfParser\Parser();        
             $pdf = $parser->parseFile($filePath);        
@@ -225,12 +225,12 @@ class BankTransfer extends Base {
             $pdfText = trim($pdfText);
             return $pdfText;
         } catch (\Exception $ex) {            
-            pmbLogger::make()->reportAnException($ex,"ERROR",$this->merchant_id,["pe" => $this->performer]);
+            pmbLogger::make()->reportAnException($ex,"ERROR",$this->merchant_id,["pe" => $this->performer, "py" => $payment]);
             return "";
         }
     }
     
-    protected function extractTextUsingOCR($filePath){
+    protected function extractTextUsingOCR($filePath, pmbPayment $payment){
         $client = new \SoapClient($this->cfg("ocr-endpoint"),[
                 "trace" => 1,
                 "exceptions" => 1
@@ -264,7 +264,7 @@ class BankTransfer extends Base {
         try {
             $result = $client->OCRWebServiceRecognize($params);
         } catch (\SoapFault $fault) {            
-			pmbLogger::make()->reportAnException($ex,"ERROR",$this->merchant_id,["pe" => $this->performer]);
+			pmbLogger::make()->reportAnException($ex,"ERROR",$this->merchant_id,["pe" => $this->performer, "py" => $payment]);
             return "";
         }
         $arr_str = json_decode(json_encode($result), true);
