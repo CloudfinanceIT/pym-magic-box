@@ -42,6 +42,21 @@ class Logger {
 			}		
 		}
 	}
+
+	public function reportAnException(\Exception $e, $level, $merchant_id, array $params=[]){
+		if ($e instanceof pymMagicBoxException){
+			return $e->loggable($level, $merchant_id, $params);
+		}else{
+			if (!isset($params['message'])){
+				$params['message']=class_basename($e)." ::: ".$e->getMessage();
+			}
+			if (!isset($params['details'])){
+				$params['details']=$e->getTraceAsString();
+			}
+			$this->write($level,$merchant_id,$params);
+			return $e;
+		}		
+	}
 	
 	public function write($level, string $merchant_id, array $params=[]){		
 		

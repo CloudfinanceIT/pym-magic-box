@@ -7,16 +7,7 @@ class pymMagicBoxException extends \Exception {
     public static function make(...$args){
         return new static(...$args);
     }
-    
-    public static function wrap(\Exception $e){
-        if ($e instanceof pymMagicBoxException){
-            return $e;
-        }else{
-			$c=$e->getCode();
-            return new static($e->getMessage(),is_int($c) ? $c : 0,$e->getPrevious());
-        }
-    }
-    
+   
     protected $plog_merchant_id=null;
     protected $plog_level=null;
     protected $plog_params=[];

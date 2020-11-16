@@ -215,9 +215,8 @@ abstract class Base {
 	protected function sandbox(string $funName, array $args=[]){
 		try {
 			$result=$this->{$funName}(...$args);
-		}catch (\Exception $e) {                                                
-                        throw pymMagicBoxException::wrap($e)->loggable("EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->performer]));                        
-			return null;
+		}catch (\Exception $e) {                                                			
+			throw pmbLogger::make()->reportAnException($e,"EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->performer]));						
 		}
 		return $result;
 	}

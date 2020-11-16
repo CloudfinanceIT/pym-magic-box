@@ -5,6 +5,7 @@ use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Mantonio84\pymMagicBox\Rules\IBAN;
 use \Mantonio84\pymMagicBox\Exceptions\genericMethodException;
+use \Mantonio84\pymMagicBox\Logger as pmbLogger;
 use \Illuminate\Http\File;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
@@ -224,7 +225,7 @@ class BankTransfer extends Base {
             $pdfText = trim($pdfText);
             return $pdfText;
         } catch (\Exception $ex) {            
-            report(genericMethodException::wrap($ex)->loggable("ERROR",$this->merchant_id,["pe" => $this->performer]));
+            pmbLogger::make()->reportAnException($ex,"ERROR",$this->merchant_id,["pe" => $this->performer]);
             return "";
         }
     }
@@ -262,8 +263,8 @@ class BankTransfer extends Base {
 
         try {
             $result = $client->OCRWebServiceRecognize($params);
-        } catch (\SoapFault $fault) {
-            report(genericMethodException::wrap($ex)->loggable("ERROR",$this->merchant_id,["pe" => $this->performer]));
+        } catch (\SoapFault $fault) {            
+			pmbLogger::make()->reportAnException($ex,"ERROR",$this->merchant_id,["pe" => $this->performer]);
             return "";
         }
         $arr_str = json_decode(json_encode($result), true);
