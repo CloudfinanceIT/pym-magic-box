@@ -92,12 +92,18 @@ class BankTransfer extends Base {
         if ($ibanValid!==true){
             return $this->throwAnError($ibanValid);            
         }
-        
+        		
+		if (isset($data['code']) && $this->checkBBCodeValidAndUnique($data['code'])){
+			$tracker=$data['code'];			
+		}else{
+			$tracker=$tracker=$this->generateBBCode();
+		}
+		
         return new processPaymentResponse([
             "billed" => true,
             "confirmed" => false,
             "transaction_ref" => $this->generateTransactionRef(),
-            "tracker" => $this->generateBBCode(),
+            "tracker" => $tracker,
             "other_data"  => Arr::only($data,["home-iban","currency"])
         ]);
     }
@@ -298,14 +304,16 @@ class BankTransfer extends Base {
     }
     
     protected function checkBBCodeValidAndUnique($code){
-        if (is_null($code)){
-            return false;
-        }
-        if (ctype_digit($code)){
-            return false;
-        }    
+        if (!$this->checkBBCodeValid($code)){
+			return false;
+		}
         return !pmbPayment::ofPerformers($this->performer)->where("tracker",$code)->exists();        
     }
+	
+	protected function checkBBCodeValid($code){
+		$pattern='/^[ABCDEFGHJLMNPQRTUVWXYZ2346789]{'.$this->cfg("bbcode-length").'}$/';
+		return (preg_match($pattern,$code)>0);
+	}
     
     protected function generateTransactionRef(){
         return Str::random(32);
