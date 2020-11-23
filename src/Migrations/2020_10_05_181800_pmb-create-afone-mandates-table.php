@@ -22,8 +22,9 @@ class PmbCreateAfoneMandatesTable extends Migration
             $table->dateTime("confirmed_at")->nullable();
             $table->integer("demande_signature_id");
             $table->unsignedBigInteger("performer_id");            
+			 $table->string("customer_id")->nullable()->index();
             $table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');            		
-            $table->unique(["iban","performer_id"]);
+            $table->unique(["iban","performer_id","customer_id"]);
         });
     }
 
