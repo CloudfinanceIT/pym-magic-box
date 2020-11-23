@@ -150,11 +150,7 @@ class AfoneSddr extends Base {
 			$mandate->rum=Arr::get($process,"sepaTransfer.rum",$mandate->rum);
 			$mandate->demande_signature_id=$did;	
 			$mandate->first_transaction_ref=$transactionRef;
-            $mandate->save();
-            if (!empty($alias_data)){
-				$alias_data->adata['mandate_id']=$mandate->getKey();
-				$alias_data->save();
-			}
+            $mandate->save();            
             return processPaymentResponse::make([
                 "transaction_ref" => $transactionRef, 
                 "tracker" => "DID:".$did,
