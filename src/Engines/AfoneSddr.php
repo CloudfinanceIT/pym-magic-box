@@ -87,19 +87,15 @@ class AfoneSddr extends Base {
 			if (empty($customer_id)){
 				return $this->throwAnError("customer_id is required!");            
 			}
-			$data['iban']=$this->validateIban(Arr::get($data,"iban"));
-			$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->customer($customer_id)->confirmed()->first();
+			$data['iban']=$this->validateIban(Arr::get($data,"iban"));			
 		}else{
-			$data['iban']=$alias_data->adata['iban'];
-			$mandate_id=intval(Arr::get($alias_data->adata,"mandate_id"));
-			if ($mandate_id>0){
-				$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->customer($customer_id)->confirmed()->find($mandate_id);
-			}
-			$customer_id=trim($alias_data->customer_id);
+			$data['iban']=$alias_data->adata['iban'];			
+			$customer_id=$alias_data->customer_id ?? $customer_id;
 			if (empty($customer_id)){
 				return $this->throwAnError("alias customer_id is required!");            
 			}
 		}		
+		$mandate=pmbAfoneMandate::ofPerformers($this->performer)->iban($data['iban'])->customer($customer_id)->confirmed()->first();
         if ($mandate){
             $this->log("INFO","Found SEPA mandate #".$mandate->getKey()." for IBAN ".$data['iban']);
             $mandate->touch();
