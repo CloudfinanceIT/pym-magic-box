@@ -23,10 +23,10 @@ class Currency {
     public static function all(){
         static::$data=[];
         $path=static::getDBPath();        
-        if (is_dir($path)){
+        if (is_dir($path)){            
             $files=scandir($path);
             foreach ($files as $f){
-                $code=basename($f);
+                $code=basename($f,".json");
                 if (static::isValidCodeName($code)){
                     static::$data[$code]=static::loadCodeFile($path.DIRECTORY_SEPARATOR.$f);
                 }
@@ -73,5 +73,9 @@ class Currency {
     
     public function format(float $amount, string $dec_point = ".", string $thousands_sep = ""){
         return $this->info['code']." ".$this->numberFormat($amount,$dec_point,$thousands_sep);
+    }
+    
+    public function round($amount){
+        return round($amount,$this->info['decimals']);
     }
 }
