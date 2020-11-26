@@ -14,6 +14,9 @@ abstract class BaseOnModel extends Base implements pmbLoggable, Arrayable, Jsona
         protected $en;
         protected abstract function searchModel($ref);
         
+        public static function make(...$args){
+            return new static(...$args);
+        }
 	
 	public static function find(string $merchant_id, $ref){
 		

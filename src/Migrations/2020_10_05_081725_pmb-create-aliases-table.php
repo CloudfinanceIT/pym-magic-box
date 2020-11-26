@@ -20,6 +20,8 @@ class PmbCreateAliasesTable extends Migration
 			$table->string("name");
 			$table->dateTime("expires_at")->nullable();
 			$table->json("adata")->nullable();
+                          $table->dateTime("confirmed_at")->nullable();
+            $table->string("tracker")->nullable()->index();    
 			$table->unsignedBigInteger("performer_id");
 			$table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');		
                         $table->unique(["performer_id","name"]);

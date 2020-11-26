@@ -16,16 +16,21 @@ use \Mantonio84\pymMagicBox\Engine as pmbEngineWrapper;
 use \Carbon\Carbon;
 use \Illuminate\Support\Str;
 use \Illuminate\Support\Arr;
+use \Mantonio84\pymMagicBox\Classes\aliasCreateResponse;
+use Mantonio84\pymMagicBox\Models\pmbRefund;
+use Mantonio84\pymMagicBox\Classes\Currency;
 
 abstract class Base {
 	
-	public abstract function isRefundable(pmbPayment $payment): bool;	
+	public abstract function isRefundable(pmbPayment $payment): float;	
 	public abstract function supportsAliases(): bool;
         public abstract function isConfirmable(pmbPayment $payment): bool;
+        public abstract function isAliasConfirmable(pmbAlias $alias): bool;
 	protected abstract function validateConfig(array $config);
 	protected abstract function onProcessPayment(pmbPayment $payment, $alias_data, array $data=[], string $customer_id): processPaymentResponse;
-	protected abstract function onProcessRefund(pmbPayment $payment, array $data=[]): bool;
-	protected abstract function onProcessConfirm(pmbPayment $payment, array $data=[]): bool;
+	protected abstract function onProcessRefund(pmbPayment $payment, float $amount, array $data=[]): bool;
+	protected abstract function onProcessPaymentConfirm(pmbPayment $payment, array $data=[]): bool;
+        protected abstract function onProcessAliasConfirm(pmbAlias $alias, array $data=[]): bool;
 	protected abstract function onProcessAliasCreate(array $data, string $name, string $customer_id="", $expires_at=null): array;	
 	protected abstract function onProcessAliasDelete(pmbAlias $alias): bool;	
 	
@@ -33,6 +38,7 @@ abstract class Base {
 	protected $config;
 	protected $allPerformersIds;
         protected $merchant_id;
+        protected $partial_refund_allowed=true;
 	
 	public function __construct(pmbPerformer $performer){
 		$this->performer=$performer;		
@@ -67,22 +73,33 @@ abstract class Base {
                     throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
                     return null;
 		}
+                $action=null;
 		$ret=$this->sandbox("onProcessAliasCreate",[$data, $name, $customer_id, $expires_at]);
-		if (empty($ret)){
-			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias creation falied!", "details" => $data]);
+		if ((!($ret instanceof aliasCreateResponse) && !is_array($ret)) || (empty($ret))){
+			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias creation failed!", "details" => $data]);
 			return null;
 		}
-		$a=new pmbAlias([
-			"adata" => $ret,
+                
+		$a=new pmbAlias([			
 			"name" => $name,
 			"customer_id" => $customer_id,
 			"expires_at" => $expires_at instanceof Carbon ? $expires_at : null
 		]);
-		$a->performer()->associate($this->performer);
+                $a->performer()->associate($this->performer);
+                if ($ret instanceof aliasCreateResponse){
+                    $action=$ret->getUserInteraction();
+                    $a->forceFill($ret->toArray());                    
+                }else{
+                    $a->adata=$ret;
+                    $a->confirmed=true;
+                }		                
 		$a->save();		
-                
+                event(new \Mantonio84\pymMagicBox\Events\Alias\Created($this->merchant_id, $a));
+                if ($a->confirmed){
+                    event(\Mantonio84\pymMagicBox\Events\Alias\Confirmed::make($this->merchant_id,$a)->with("contemporary_created",true));
+                }
 		pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "al" => $a, "message" => "Alias created successfully!", "details" => ["input" => $data, "output" => $ret]]);
-		return $a;
+		return [$a, $action];
 	}
 	
 	public function aliasDelete(pmbAlias $alias){
@@ -94,19 +111,37 @@ abstract class Base {
 		if ($ret){
 			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias deleted successfully!", "al" => $alias]);
 			$alias->delete();
+                        event(new \Mantonio84\pymMagicBox\Events\Alias\Deleted($this->merchant_id, $alias));
 		}else{
 			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias delete error!", "al" => $alias]);
+                        event(new \Mantonio84\pymMagicBox\Events\Alias\Error($this->merchant_id, $alias, "delete"));
 		}
 		return $ret;
 	}
 	
+        public function aliasConfirm(pmbAlias $alias, array $data=[]){
+            if (!$this->isAliasConfirmable($alias)){
+                    throw paymentMethodInvalidOperationException::make("This method and/or alias does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "al" => $alias]);
+                    return $alias;
+		}		
+		$success=$this->sandbox("onProcessAliasConfirm",[$payment,$data]);
+		if ($success){
+			$alias->confirmed=true;	
+			$alias->save();
+			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "al" => $alias, "message" => "Successfully confirmed alias"]);
+			event(new \Mantonio84\pymMagicBox\Events\Alias\Confirmed($this->merchant_id,$alias));
+		}else{
+			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "al" => $alias, "message" => "Unsuccessfully confirmed alias"]);
+			event(new \Mantonio84\pymMagicBox\Events\Alias\Error($this->merchant_id,$alias,"confirmed"));
+		}		
+		return $alias;
+        }
 
 	
 	public function pay(float $amount, string $currency_code, $alias=null, string $customer_id="", string $order_ref="", array $data=[]) {
                 $this->validateCurrencyCodeOrFail($currency_code);
 		$payment=$this->resolveNewPaymentModel($order_ref,$amount,$currency_code,$customer_id,$this->performer);	
-                $action=null;
-                $unique=(config("pymMagicBox.unique_payments",true)===true);		
+                $action=null;                
 		if (!$payment->billed){
 			$usealias=false;			
 			if ($alias instanceof pmbAlias){					
@@ -117,6 +152,10 @@ abstract class Base {
 					pmbLogger::alert($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Charging with alias not supported!"]));
 					return $payment;				
 				}
+                                if (!$alias->confirmed){
+                                    pmbLogger::alert($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Alias not confirmed!"]));
+                                    return $payment;
+                                }
 				$usealias=true;				
 			}
 			$process=$this->sandbox("onProcessPayment",[$payment, $usealias ? $alias : null, $data, $customer_id]);
@@ -157,29 +196,46 @@ abstract class Base {
                     throw paymentMethodInvalidOperationException::make("This method and/or payment does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
                     return $payment;
 		}		
-		$success=$this->sandbox("onProcessConfirm",[$payment,$data]);
+		$success=$this->sandbox("onProcessPaymentConfirm",[$payment,$data]);
 		if ($success){
 			$payment->confirmed=true;	
 			$payment->save();
-			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully confirmed"]);
+			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully confirmed payment"]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Confirmed($this->merchant_id,$payment));
 		}else{
-			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully confirmed"]);
+			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully confirmed payment"]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"confirmed"));
 		}		
 		return $payment;
 	}
 		
-	public function refund(pmbPayment $payment, array $data=[]){		
-		if (!$this->isRefundable($payment)){
-                    throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support refund operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
+	public function refund(pmbPayment $payment, $amount, array $data=[]){		
+                $allowed=$this->isRefundable($payment);
+		if ($allowed==0){
+                    throw paymentMethodInvalidOperationException::make("Refund operation not allowed!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
                     return $payment;
-		}		
-		$success=$this->sandbox("onProcessRefund",[$payment,$data]);
+		}		                
+                if (is_float($amount) || is_int($amount)){
+                    if ($amount<=0){
+                        throw paymentMethodInvalidOperationException::make("Refund amount be greater than zero!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
+                        return $payment;
+                    }
+                    if ($amount>$allowed){
+                        throw paymentMethodInvalidOperationException::make("Excessive refund amount!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
+                        return $payment;
+                    }
+                    if ($amount!=$allowed && !$this->partial_refund_allowed){
+                        throw paymentMethodInvalidOperationException::make("Partial refunds are not allowed!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "py" => $payment]);
+                        return $payment;
+                    }
+                }else{
+                    $amount=$allowed;
+                }
+		$success=$this->sandbox("onProcessRefund",[$payment,$amount,$data]);
 		if ($success){
-			$payment->refunded=true;		
+			$payment->refunded_amount=$payment->refunded_amount+$amount;		
 			$payment->save();
-			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded"]);
+			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded $amount"]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment));
 		}else{
 			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully refunded"]);
@@ -189,19 +245,9 @@ abstract class Base {
 	}
 	
 	protected function resolveNewPaymentModel($order_ref, $amount, $currency_code, $customer_id, pmbPerformer $performer){
-                $payment=new pmbPayment(compact("order_ref","amount", "customer_id", "currency_code"));
-		$unique=(config("pymMagicBox.unique_payments",true)===true);		
-		if ($unique &&!empty($order_ref)){			
-                    $found=null;
-                    $list=pmbPayment::ofPerformers($this->getAllPerformersIds())->where("order_ref",$order_ref)->where("amount",$amount)->where("currency_code",$currency_code)->get();			
-                    if ($list->isNotEmpty()){
-                            $found=$list->firstWhere("performer_id",$performer->getKey()) ?? $list->first();			
-                    }
-                    if ($found){
-                        $payment=$found;
-                    }
-		}				
-		$payment->performer()->associate($performer);
+                $payment=new pmbPayment(compact("order_ref","amount", "customer_id", "currency_code"));	
+                $payment->refunded_amount=0;
+                $payment->performer()->associate($performer);
 		return $payment;
 	}
         
@@ -231,7 +277,23 @@ abstract class Base {
 		return null;
 	}
         
-       
+       protected function tryJsonEncode($items, $default=null){
+            if (is_string($items)){
+                return $items;
+            }else if (is_array($items)) {
+                return json_encode($items);        
+            } elseif ($items instanceof Arrayable) {
+                return json_encode($items->toArray());
+            } elseif ($items instanceof Jsonable) {
+                return $items->toJson();
+            } elseif ($items instanceof \JsonSerializable) {
+                return json_encode($items);
+            } elseif ($items instanceof \Traversable) {
+                return json_encode(iterator_to_array($items));
+            }
+
+            return $default;
+        }
         
         protected function throwAnError(string $message, $level="EMERGENCY", $details=""){            
             throw genericMethodException::make($message)->loggable($level, $this->merchant_id, ["message" => $message, "details" => $details, "pe" => $this->performer]);
@@ -257,20 +319,38 @@ abstract class Base {
             return true;
         }
         
+        protected function registerARefund(pmbPayment $payment, float $amount, string $transaction_ref="", $details=null){
+            $ret= pmbRefund::make([
+                "amount" => $amount,
+                "transaction_ref" => $transaction_ref,
+                "details" => $this->tryJsonEncode($details)
+            ]);
+            $ret->payment()->associate($payment);
+            $ret->save();
+            $payment->unsetRelation("refunds");
+            return $ret;
+        }
+
+
         protected function validateCurrencyCode(string $code) {      
             if (!isset($this->config['currencies'])){ 
                 //Siccome la validazione rispetto all'elenco completo delle currencies ISO 4217 viene già eseguito nella classe Mantonio84\pymMagicBox\Engine, è inutile rifarla!
                 return true;
             }
+            $code=strtoupper($code);
+            $forbidden=array_map("strtoupper", $this->cfg("currencies.forbidden",[]));            
+            if (in_array($code,$forbidden)){
+                return false;
+            }            
             
-            $validCurrencies=array_map("strtoupper",array_diff($this->onlyIfIsArray($this->cfg("currencies.valid"), pmbEngineWrapper::getValidCurrencyCodes()),$this->onlyIfIsArray($this->cfg("currencies.forbidden"))));
-            
-            if (empty($validCurrencies)){
-                //Follia!
-                return true;
+            $valid=$this->cfg("currencies.valid");
+            if (is_array($valid)){
+                $valid=array_map("strtoupper", $valid);            
+                if (!in_array($code,$valid)){
+                    return false;
+                }
             }
-            
-            return in_array(strtoupper($code),$validCurrencies);
+            return Currency::exists($code);
         }
         
         private function onlyIfIsArray($v,array $default=[]){

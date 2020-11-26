@@ -10,22 +10,11 @@ use \Mantonio84\pymMagicBox\Interfaces\pmbLoggable;
 use \Mantonio84\pymMagicBox\Exceptions\invalidCurrencyCodeException;
 use \Mantonio84\pymMagicBox\Exceptions\invalidAmountException;
 use \Mantonio84\pymMagicBox\Exceptions\pymMagicBoxException;
+use \Mantonio84\pymMagicBox\Classes\Currency;
 
 class Engine extends Base implements pmbLoggable {
 		
-        protected static $currencies=["AED","AFN","ALL","AMD","ANG","AOA","ARS","AUD","AWG","AZN","BAM","BBD","BDT","BGN",
-                               "BHD","BIF","BMD","BND","BOB","BOV","BRL","BSD","BTN","BWP","BYN","BZD","CAD","CDF",
-                               "CHE","CHF","CHW","CLF","CLP","CNY","COP","COU","CRC","CUC","CUP","CVE","CZK","DJF",
-                               "DKK","DOP","DZD","EGP","ERN","ETB","EUR","FJD","FKP","GBP","GEL","GHS","GIP","GMD",
-                               "GNF","GTQ","GYD","HKD","HNL","HRK","HTG","HUF","IDR","ILS","INR","IQD","IRR","ISK",
-                               "JMD","JOD","JPY","KES","KGS","KHR","KMF","KPW","KRW","KWD","KYD","KZT","LAK","LBP",
-                               "LKR","LRD","LSL","LYD","MAD","MDL","MGA","MKD","MMK","MNT","MOP","MRU","MUR","MVR",
-                               "MWK","MXN","MXV","MYR","MZN","NAD","NGN","NIO","NOK","NPR","NZD","OMR","PAB","PEN",
-                               "PGK","PHP","PKR","PLN","PYG","QAR","RON","RSD","RUB","RWF","SAR","SBD","SCR","SDG",
-                               "SEK","SGD","SHP","SLL","SOS","SRD","SSP","STN","SVC","SYP","SZL","THB","TJS","TMT",
-                               "TND","TOP","TRY","TTD","TWD","TZS","UAH","UGX","USD","USN","UYI","UYU","UYW","UZS",
-                               "VES","VND","VUV","WST","XAF","XCD","XOF","XPF","YER","ZAR","ZMW","ZWL"
-                                ];
+      
     
 	public $supports_aliases=false;	
 	protected $signatures;
@@ -37,14 +26,8 @@ class Engine extends Base implements pmbLoggable {
 		$this->supports_aliases=$managed->supportsAliases();                
 		pmbLogger::debug($this->merchant_id, ["pe" => $managed->performer, "message" => "Created engine wrapper for '".class_basename($managed)."'"]);
 	}
+              
         
-        public static function getValidCurrencyCodes(){
-            return static::$currencies;
-        }
-        
-        public static function isValidCurrencyCode(string $code){            
-            return in_array(strtoupper($code),static::getValidCurrencyCodes());
-        }
 	
 	public function getPmbLogData(): array{
 		return [
@@ -84,10 +67,10 @@ class Engine extends Base implements pmbLoggable {
 	}
 	
 	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null){
-		pmbLogger::debug($this->merchant_id,["message" => "createAnAlias request", "per" => $this->managed->performer]);
-		return new Alias($this->merchant_id,$this->managed->aliasCreate($data, $name, $customer_id, $expires_at));		
+		pmbLogger::debug($this->merchant_id,["message" => "createAnAlias request", "per" => $this->managed->performer]);				
+                return $this->wrapCreateAliasResponse($this->managed->aliasCreate($data, $name, $customer_id, $expires_at));
 	}
-	
+                	
 	public function toBase(){
 		return $this->managed;
 	}
@@ -130,7 +113,7 @@ class Engine extends Base implements pmbLoggable {
         protected function parseAmountAndCurrencyCode($w){
             $ret=null;
             $defaultCurrencyCode=config("pymMagicBox.default_currency_code","EUR");
-            if (!static::isValidCurrencyCode($defaultCurrencyCode)){
+            if (!Currency::exists($defaultCurrencyCode)){
                 throw invalidCurrencyCodeException::make("Invalid default currency code '$defaultCurrencyCode'!")->loggable("EMERGENCY",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
@@ -158,7 +141,7 @@ class Engine extends Base implements pmbLoggable {
                 throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
-            if (!static::isValidCurrencyCode($ret[1])){
+            if (!Currency::exists($ret[1])){
                 throw invalidCurrencyCodeException::make("Invalid currency code given '".$ret[1]."'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
                 return null;
             }
@@ -215,7 +198,14 @@ class Engine extends Base implements pmbLoggable {
 	
          protected function wrapPayResponse($ret){
             if (is_array($ret) && count($ret)==2){
-                return new Payment($this->merchant_id, $ret[0], $ret[1]);                
+                return Payment::make($this->merchant_id, $ret[0])->setUserInteraction($ret[1]);                
+            }
+            return $ret;
+	}
+        
+        protected function wrapCreateAliasResponse($ret){
+            if (is_array($ret) && count($ret)==2){
+                return Alias::make($this->merchant_id, $ret[0])->setUserInteraction($ret[1]);                
             }
             return $ret;
 	}

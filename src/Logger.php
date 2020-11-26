@@ -8,6 +8,7 @@ use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Contracts\Support\Jsonable;
 use \Cache;
 use \Carbon\Carbon;
+use Mantonio84\pymMagicBox\Classes\Currency;
 
 class Logger {
 	
@@ -103,7 +104,7 @@ class Logger {
 		if (isset($attributes['message'])){
                     $attributes['message']=Str::limit($attributes['message'],250);
 		}		
-                if (isset($attributes['currency_code']) && !Engine::isValidCurrencyCode($attributes['currency_code'])){
+                if (isset($attributes['currency_code']) && !Currency::exists($attributes['currency_code'])){
                     unset($attributes['currency_code']);
                 }
 		$a=new pmbLog($attributes);

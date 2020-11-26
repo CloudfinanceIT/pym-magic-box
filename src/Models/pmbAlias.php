@@ -6,9 +6,16 @@ class pmbAlias extends pmbBaseWithPerformer  {
 	
 	
 	protected $guarded=["id"];
-	protected $casts=["expires_at" => "datetime", "adata" => "array"];
+	protected $casts=["expires_at" => "datetime", "adata" => "array","confirmed_at" => "datetime"];
 
 	
+	public function scopeConfirmed($query,bool $v=true){
+		if ($v){
+			return $query->whereNotNull("confirmed_at");
+		}else{
+			return $query->whereNull("confirmed_at");
+		}
+	}
 	
 	public function scopeExpired($query){
 		return $query->where("expires_at","<",now())->whereNotNull("expires_at");
@@ -29,5 +36,12 @@ class pmbAlias extends pmbBaseWithPerformer  {
             
 		return array_merge($this->only(["performer_id","customer_id"]),["alias_id" => $this->getKey()]);
 	}
-
+        
+        public function getConfirmedAttribute(){
+		return !is_null($this->confirmed_at);
+	}
+	
+	public function setConfirmedAttribute(bool $value){
+		$this->confirmed_at = $value ? now() : null;
+	}
 }

@@ -26,10 +26,7 @@ class Gateway extends Base {
     public function getAllAvailableMethods(){
         return pmbPerformer::with("method")->merchant($this->merchant_id)->enabled()->get()->pluck("method.name","method.id")->all();
     }
-    
-    public function getValidCurrencyCodes(){
-        return Engine::getValidCurrencyCodes();
-    }
+        
     
     public function build($name){
 		$kr=md5($this->merchant_id.":::".$name);
@@ -44,6 +41,14 @@ class Gateway extends Base {
             }
         }        
         return self::$engines[$kr];
+    }
+    
+    public function findPayment($ref){
+        return new Payment($this->merchant_id,$ref);
+    }
+    
+    public function findAlias($ref){
+        return new Alias($this->merchant_id,$ref);
     }
         
 }   

@@ -3,6 +3,7 @@ namespace Mantonio84\pymMagicBox\Events\Payment;
 
 use Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Illuminate\Support\Arr;
+use Mantonio84\pymMagicBox\Payment;
 
 abstract class Base {
 	

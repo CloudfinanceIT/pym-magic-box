@@ -13,16 +13,27 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
      * @return void
      */
     public function boot() {			
-		\Route::bind("pymMagicBoxPayment", function ($value) {                
-			$a=explode("-",$value);
-			if (count($a)==6){
-				$ref=intval($a[5]);
-				unset($a[5]);
-				$merchant_id=implode("-",$a);
-				if (\Mantonio84\pymMagicBox\Base::isUuid($merchant_id)){
-					return new \Mantonio84\pymMagicBox\Payment($merchant_id,$ref);
-				}
-			}
+        \Route::bind("pymMagicBoxPayment", function ($value) {                
+            $a=explode("-",$value);
+            if (count($a)==6){
+                    $ref=intval($a[5]);
+                    unset($a[5]);
+                    $merchant_id=implode("-",$a);
+                    if (\Mantonio84\pymMagicBox\Base::isUuid($merchant_id)){
+                            return new \Mantonio84\pymMagicBox\Payment($merchant_id,$ref);
+                    }
+            }
+        });
+       \Route::bind("pymMagicBoxAlias", function ($value) {                
+            $a=explode("-",$value);
+            if (count($a)==6){
+                    $ref=intval($a[5]);
+                    unset($a[5]);
+                    $merchant_id=implode("-",$a);
+                    if (\Mantonio84\pymMagicBox\Base::isUuid($merchant_id)){
+                            return new \Mantonio84\pymMagicBox\Alias($merchant_id,$ref);
+                    }
+            }
         });
 	
 		Request::macro("qualifiedIp", function (){			

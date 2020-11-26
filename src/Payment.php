@@ -7,9 +7,10 @@ use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\JsonResponse;
 
 class Payment extends BaseOnModel implements Responsable {
-	
-        protected $modelClassName = pmbPayment::class;
-		
+	use \Mantonio84\pymMagicBox\Traits\withUserInteraction;
+    
+        protected $modelClassName = pmbPayment::class;        
+        
 	public static function ofCustomer(string $merchant_id, string $customer_id){
 		$ret=collect();				
 		$data=pmbPayment::merchant($merchant_id)->where("customer_id", $customer_id)->get();		
@@ -17,25 +18,19 @@ class Payment extends BaseOnModel implements Responsable {
 				$ret[]=new static($merchant_id,$rec);
 		}		
 		return $ret;
-	}
-	
+	}	
         
-	public $is_refundable=false;
-        public $is_confirmable=false;
+	public $refundable=0;
+        public $confirmable=false;       
         
-        protected $interactive;
-        protected $ir=false;
-       
-        
-	public function __construct(string $merchant_id, $ref, $interactive=null){
+	public function __construct(string $merchant_id, $ref){
 		$this->acceptMerchantId($merchant_id);
 		if ($ref instanceof pmbPayment){
                     $this->managed=$ref;                        
 		}else{
                     $this->managed=$this->searchModelOrFail($ref);
 		}
-                $this->performer=$this->managed->performer;		      
-                $this->interactive=$interactive;               
+                $this->performer=$this->managed->performer;		                                
                 $this->updateFlags();
                 if ($this->needsUserInteraction()){
                     pmbLogger::info($this->merchant_id, ["re" => $this->managed, "pe" => $this->performer, "message" => "Created a 'Payment' class: user interaction required!"]);                
@@ -44,20 +39,6 @@ class Payment extends BaseOnModel implements Responsable {
                 }                
 	}
         
-        public function needsUserInteraction(){
-            return !is_null($this->interactive);
-        }
-        
-        public function getUserInteraction(){
-            if (!$this->needsUserInteraction()){
-                return null;
-            }
-            if (!$this->ir){
-                pmbLogger::debug($this->merchant_id, ["re" => $this->managed, "pe" => $this->performer, "message" => "Payment user interaction readed first time"]);                
-                $this->ir=true;
-            }
-            return $this->interactive;
-        }				
         
         protected function getPropAlias(){
             return $this->managed->alias;
@@ -66,7 +47,7 @@ class Payment extends BaseOnModel implements Responsable {
 		protected function getPropResolverKey(){
 			return $this->merchant_id."-".$this->managed->getKey();
 		}
-		
+                  
         protected function getPropMandate(){
             if (isset($this->managed->other_data["mandate"])){
                 $m=$this->managed->other_data["mandate"];
@@ -74,7 +55,11 @@ class Payment extends BaseOnModel implements Responsable {
                 return $cls::find($m[1]);
             }
         }
-			
+		
+        protected function getPropRefunds(){
+            return $this->managed->refunds;
+        }
+        
 	public function confirm(array $other_data=[]){            
             $o=$this->managed->confirmed;
             $a=$this->buildEngine()->confirm($this->managed,$other_data)->confirmed;
@@ -82,11 +67,11 @@ class Payment extends BaseOnModel implements Responsable {
             return (!$o && $a);
 	}
 	
-	public function refund(array $other_data=[]){
-            $o=$this->managed->refunded;
-            $a=$this->buildEngine()->refund($this->managed,$other_data)->refunded;
+	public function refund($amount=null,array $other_data=[]){           
+            $o=$this->refundable;
+            $this->buildEngine()->refund($this->managed,$amount,$other_data);
             $this->updateFlags();
-            return (!$o && $a);
+            return ($o-$this->refundable!=0);
 	}	        
         	
         
@@ -105,16 +90,10 @@ class Payment extends BaseOnModel implements Responsable {
         }
         
         protected function updateFlags(){            
-            $this->is_refundable=$this->buildEngine()->isRefundable($this->managed);		
-            $this->is_confirmable=$this->buildEngine()->isConfirmable($this->managed);          
+            $this->refundable=$this->buildEngine()->isRefundable($this->managed);		
+            $this->confirmable=$this->buildEngine()->isConfirmable($this->managed);          
         }
 
-        public function toResponse($request): \Symfony\Component\HttpFoundation\Response {
-            if ($this->needsUserInteraction()){
-                return $this->getUserInteraction();
-            }else{
-                return new JsonResponse($this->managed);
-            }
-        }
+        
 
 }

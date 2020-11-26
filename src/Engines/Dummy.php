@@ -20,14 +20,14 @@ class Dummy extends Base {
     }
 	
     protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
-        return $data;
+        return array_merge($data,["seed" => uniqid()]);
     }
 
     protected function onProcessAliasDelete(pmbAlias $alias): bool {
         return true;
     }
 
-    protected function onProcessConfirm(pmbPayment $payment, array $data = array()): bool {
+    protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = array()): bool {
         return true;
     }
 
@@ -40,12 +40,16 @@ class Dummy extends Base {
         ]);
     }
     
-    protected function onProcessRefund(pmbPayment $payment, array $data = array()): bool {
+    protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = array()): bool {
+        $this->registerARefund($payment, $amount);
         return true;
     }
 
-    public function isRefundable(pmbPayment $payment): bool {
-        return $payment->billed && $payment->confirmed && !$payment->refuned;
+    public function isRefundable(pmbPayment $payment): float {
+        if (!$payment->billed && !$payment->confirmed){
+            return 0;
+        }
+        return $payment->refundable_amount;
     }
 
     public function supportsAliases(): bool {
@@ -54,6 +58,14 @@ class Dummy extends Base {
     
     public function isConfirmable(pmbPayment $payment): bool {
         return $payment->billed && !$payment->confirmed && !$payment->refuned;
+    }
+
+    protected function onProcessAliasConfirm(pmbAlias $alias, array $data = array()): bool {
+        return !$alias->confirmed;
+    }
+
+    public function isAliasConfirmable(pmbAlias $alias): bool {
+        return true;
     }
 
 }

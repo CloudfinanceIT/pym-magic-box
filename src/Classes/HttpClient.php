@@ -72,13 +72,13 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
         $lgs="[$pid] $method RESPONSE FROM ".$this->getEndPointURL($uri)." (".$statusCode.")";
         $rawResponse=(string) $response->getBody();        
         if ($statusCode!=200){            
-            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => $rawResponse]);
+            throw httpClientException::make($lgs)->loggable("CRITCAL",$this->merchant_id,["details" => $rawResponse]);
             return false;
         }
         $rpdata=json_decode($rawResponse, true);
         if (!is_array($rpdata)){
             $lgs.=" INVALID JSON DATA!";            
-            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => $rawResponse]);
+            throw httpClientException::make($lgs)->loggable("CRITCAL",$this->merchant_id,["details" => $rawResponse]);
             return false;
         }
         $valid=true;
@@ -95,7 +95,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
         }
         if (!$valid){
             $lgs.=" RESPONSE VALIDATION FAILED!";            
-            throw httpClientException::make($lgs)->loggable("WARNING",$this->merchant_id,["details" => $rpdata]);
+            throw httpClientException::make($lgs)->loggable("CRITCAL",$this->merchant_id,["details" => $rpdata]);
             return false;
         }
         $this->log("DEBUG",$lgs,$rpdata);

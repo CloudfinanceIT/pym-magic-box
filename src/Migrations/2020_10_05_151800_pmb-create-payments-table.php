@@ -21,9 +21,9 @@ class PmbCreatePaymentsTable extends Migration
             $table->string("currency_code",3);
             $table->string("transaction_ref")->nullable();
             $table->unsignedDecimal('amount', 12, 2);
+            $table->unsignedDecimal('refunded_amount', 12, 2)->default(0);
             $table->dateTime("billed_at")->nullable();
-            $table->dateTime("confirmed_at")->nullable();
-            $table->dateTime("refunded_at")->nullable();
+            $table->dateTime("confirmed_at")->nullable();            
             $table->unsignedBigInteger("performer_id");
             $table->unsignedInteger("alias_id")->nullable();
             $table->string("tracker")->nullable()->index();

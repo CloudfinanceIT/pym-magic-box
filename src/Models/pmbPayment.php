@@ -8,12 +8,16 @@ use \Mantonio84\pymMagicBox\Payment;
 class pmbPayment extends pmbBaseWithPerformer  {
 		
 	protected $guarded=["id"];        
-	protected $casts=["amount" => "float", "billed_at" => "datetime", "confirmed_at" => "datetime", "refunded_at" => "datetime", "other_data" => "array"];
-	protected $appends=["billed","confirmed","refunded"];	
+	protected $casts=["amount" => "float", "refunded_amount" => "float", "billed_at" => "datetime", "confirmed_at" => "datetime",  "other_data" => "array"];
+	protected $appends=["billed","confirmed","refundable_amount","refunded"];	
 	
 	
         public function alias(){
             return $this->belongsTo(pmbAlias::class);
+        }
+        
+        public function refunds(){
+            return $this->hasMany(pmbRefund::class,"payment_id");
         }
         
 	public function scopeMerchant($query, string $merchant_id){
@@ -40,16 +44,16 @@ class pmbPayment extends pmbBaseWithPerformer  {
 	
 	public function scopeRefunded($query,bool $v=true){
 		if ($v){
-			return $query->whereNotNull("refunded_at");
+			return $query->whereRaw("refunded_amount = amount");
 		}else{
-			return $query->whereNull("refunded_at");
+			return $query->whereRaw("refunded_amount < amount");
 		}
 	}
 	
 	public function scopePending($query){
 		return $query->where(function ($q){
 			return $query->whereNull("billed_at")->orWhereNull("confirmed_at");
-		})->whereNull("refunded_at");
+		})->where("refunded_amount",0);
 	}
 
 	public function getBilledAttribute(){
@@ -68,14 +72,21 @@ class pmbPayment extends pmbBaseWithPerformer  {
 		$this->confirmed_at = $value ? now() : null;
 	}
 	
-	public function getRefundedAttribute(){
-		return !is_null($this->refunded_at);
-	}
-	
-	public function setRefundedAttribute(bool $value){
-		$this->refunded_at = $value ? now() : null;
-	}
-	
+        public function getRefundableAmountAttribute(){
+            return $this->amount-$this->refunded_amount;
+        }
+        
+        public function getRefundedAttribute(){
+            return ($this->refunded_amount==$this->amount);
+        }
+        
+        public function getCurrencyAttribute(){
+            if (empty($this->currency_code)){
+                return null;
+            }
+            return new \Mantonio84\pymMagicBox\Classes\Currency($this->currency_code);
+        }
+		
 	public function getPmbLogData(): array {
 		return array_merge(["payment_id" => $this->getKey()] ,$this->only(["customer_id","order_ref","amount","performer_id", "currency_code"]));
 	}

@@ -47,7 +47,7 @@ class AfoneCreditCard extends Base {
         return true;
     }
 
-    protected function onProcessConfirm(pmbPayment $payment, array $data = array()): bool {
+    protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = array()): bool {
 		if (!isset($data['3ds'])){
 			return false;
 		}
@@ -176,7 +176,7 @@ class AfoneCreditCard extends Base {
 	protected function listenConfirm3dsValidate(array $request, array $rules){
 		$v=Validator::make($request,$rules);
 		if ($v->fails()){
-			$this->log("CRITICAL","3DS confirmation listen: invalid input data!",\Arr::flatten($v->errors()->getMessages()));
+			$this->log("CRITICAL","3DS confirmation listen: invalid input data!",Arr::flatten($v->errors()->getMessages()));
 			return false;
 		}else{
 			return true;
@@ -187,16 +187,20 @@ class AfoneCreditCard extends Base {
         return $payment->billed && !$payment->confirmed && !$payment->refunded && !empty($payment->tracker);
     }
     
-    protected function onProcessRefund(pmbPayment $payment, array $data = array()): bool {
-        $this->httpClient(["py" => $payment])->post("/rest/payment/refund",$this->withBaseData([
+    protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = array()): bool {
+        $result=$this->httpClient(["py" => $payment])->post("/rest/payment/refund",$this->withBaseData([
             "transactionRef" => $payment->transaction_ref,
-            "amount" => $payment->amount*100
+            "amount" => $amount*100
         ]));
+        $this->registerARefund($payment, $amount, Arr::get($result,"transaction.transactionId",""));
         return true;
     }
 
-    public function isRefundable(pmbPayment $payment): bool {
-        return $payment->billed && $payment->confirmed && !$payment->refunded;
+    public function isRefundable(pmbPayment $payment): float {
+        if (!$payment->billed && !$payment->confirmed){
+            return 0;
+        }
+        return $payment->refundable_amount;
     }
 
     public function supportsAliases(): bool {
@@ -263,4 +267,13 @@ class AfoneCreditCard extends Base {
     protected function validateCurrencyCode(string $code) {    
         return (strtoupper($code)=="EUR");
     }
+
+    protected function onProcessAliasConfirm(pmbAlias $alias, array $data = array()): bool {
+        return false;
+    }
+
+    public function isAliasConfirmable(pmbAlias $alias): bool {
+        return false;
+    }
+
 }

@@ -3,12 +3,14 @@ namespace Mantonio84\pymMagicBox\Classes;
 use \Illuminate\Contracts\Support\Arrayable;
 
 class processPaymentResponse implements Arrayable {
+        use \Mantonio84\pymMagicBox\Traits\canBeInteractive;
+        
 	public $billed=false;
 	public $confirmed=false;	
 	public $other_data=array();
 	public $transaction_ref=null;       
         public $tracker=null;
-        protected $interactive=null;
+        
 	
         public static function make($data=null){
             return new static($data);
@@ -43,21 +45,6 @@ class processPaymentResponse implements Arrayable {
 		return array("billed" => $this->billed, "confirmed" => $this->confirmed, "other_data" => $this->other_data, "transaction_ref" => $this->transaction_ref, "tracker" => $this->tracker);
 	}
  	
-        public function isInteractive(){
-            return is_null($this->interactive);
-        }
         
-        public function needsUserInteraction($w){
-            if (is_null($w) || $w === false){
-                $this->interactive=null;
-            }else{
-                $this->interactive=($w instanceof \Illuminate\Http\Response) ? $w : response($w);
-            }
-            return $this;
-        }
-        
-        public function getUserInteraction(){
-            return $this->interactive;
-        }
 	
 }

@@ -56,7 +56,7 @@ class BankTransfer extends Base {
         return false;
     }
 
-    protected function onProcessConfirm(pmbPayment $payment, array $data = array()): bool {
+    protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = array()): bool {
         if (!isset($data['filePath'])){
             return $this->throwAnError("No filepath given!");
         }                
@@ -108,12 +108,12 @@ class BankTransfer extends Base {
         ]);
     }
     
-    protected function onProcessRefund(pmbPayment $payment, array $data = array()): bool {
+    protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = array()): bool {
         return false;
     }
 
-    public function isRefundable(pmbPayment $payment): bool {
-        return false;
+    public function isRefundable(pmbPayment $payment): float {
+        return 0;
     }
 
     public function supportsAliases(): bool {
@@ -323,4 +323,13 @@ class BankTransfer extends Base {
     {        
         return in_array(strtolower($mimeType), $this->validMimeTypes);
     }
+
+    protected function onProcessAliasConfirm(pmbAlias $alias, array $data = array()): bool {
+        return false;
+    }
+
+    public function isAliasConfirmable(pmbAlias $alias): bool {
+        return false;
+    }
+
 }

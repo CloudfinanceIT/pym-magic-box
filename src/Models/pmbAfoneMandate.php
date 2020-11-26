@@ -5,7 +5,7 @@ namespace Mantonio84\pymMagicBox\Models;
 class pmbAfoneMandate extends pmbBaseWithPerformer  {	
 	
 	protected $guarded=["id"];
-        protected $casts=["confirmed_at" => "datetime"];
+        protected $casts=["confirmed_at" => "datetime", "beneficiary_ready" => "boolean"];
         protected $appends=["confirmed"];
 	
         public function scopeIban($query, string $value){
