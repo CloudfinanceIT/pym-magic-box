@@ -273,20 +273,8 @@ class AfoneSddr extends Base {
         $mandate=pmbAfoneMandate::ofPerformers($this->performer)->confirmed()->find($mandate_id);
         if (is_null($mandate)){
             return $this->throwAnError("No SEPA mandate found!");
-        }
-        if (is_null($mandate->beneficiary_id)){
-            $this->log("INFO","Starting SEPA beneficiary creation...");
-            $process=$this->httpClient()->post("/rest/sepa/beneficiary/create", $this->withBaseData([
-               "iban" => $payment->other_data['iban'],
-               "label" => uniqid("PYM-REFUND-"),
-               "holderName" => empty($payment->customer_id) ? uniqid("PYM-CUSTOMER-") : $payment->customer_id,               
-            ]));
-            $this->log("DEBUG","SEPA beneficiary created");
-            $mandate->beneficiary_id=Arr::get($process,"beneficiary.beneficiaryId");
-            $mandate->save();
-            return "PENDING";
-        }
-        $ret=$this->evaluateBeneficiaryState($mandate, $this->loadRemoteBeneficiaryList());
+        }        
+        $ret=$this->prepareMandateForRefund($mandate);
         $this->log("INFO","SEPA beneficiary status is $ret");
         return $ret;
     }
@@ -305,6 +293,37 @@ class AfoneSddr extends Base {
         }
         $this->log("DEBUG","Check of ".count($mandates)." SEPA beneficiary completed!");
         return $mandates;
+    }
+    
+    protected function prepareMandateForRefund(pmbAfoneMandate $mandate){
+        if (is_null($mandate->beneficiary_id)){
+            $this->log("INFO","Starting SEPA beneficiary creation...");
+            $process=$this->httpClient()->post("/rest/sepa/beneficiary/create", $this->withBaseData([
+               "iban" => $payment->other_data['iban'],
+               "label" => uniqid("PYM-REFUND-"),
+               "holderName" => empty($payment->customer_id) ? uniqid("PYM-CUSTOMER-") : $payment->customer_id,               
+            ]));            
+            $mandate->beneficiary_id=Arr::get($process,"beneficiary.beneficiaryId");            
+            $ret=Arr::get($process,"beneficiary.status","PENDING");                                    
+            if ($ret=="ACTIVE"){
+                $mandate->beneficiary_ready=true;
+            }else{
+                $mandate->beneficiary_ready=false;
+                sleep(3);
+                $data=$this->loadRemoteBeneficiaryList()->firstWhere("beneficiaryId",$mandate->beneficiary_id);    
+                if (is_array($data) && isset($data['status'])){
+                    $ret=$data['status'];
+                    $mandate->beneficiary_ready=($ret=="ACTIVE");
+                }
+            }
+            $this->log("INFO","SEPA beneficiary created with status '$ret'");
+            $mandate->save();
+            return $ret;
+        }
+        if ($mandate->beneficiary_ready){
+            return "ACTIVE";
+        }  
+        return $this->evaluateBeneficiaryState($mandate, $this->loadRemoteBeneficiaryList());
     }
     
     protected function evaluateBeneficiaryState(pmbAfoneMandate $mandate, \Illuminate\Support\Collection $remote){
@@ -348,25 +367,26 @@ class AfoneSddr extends Base {
     }
     
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = array()): bool {       
-       $mandate_id=intval(Arr::get($payment->other_data,"mandate.1"));
-       $mandate=pmbAfoneMandate::ofPerformers($this->performer)->confirmed()->find($mandate_id);
-       if (is_null($mandate)){
+        $mandate_id=intval(Arr::get($payment->other_data,"mandate.1"));
+        $mandate=pmbAfoneMandate::ofPerformers($this->performer)->confirmed()->find($mandate_id);
+        if (is_null($mandate)){
             return $this->throwAnError("No SEPA mandate found!");
         }
-       if (!$mandate->beneficiary_ready){
-           return $this->throwAnError("No active SEPA beneficiary found!");           
-       }
-       
-       $transaction_ref=$this->generateTransactionRef();
-       $process=$this->httpClient()->post("/rest/sepa/sct/createSct",$this->withBaseData([
+        $status=$this->prepareMandateForRefund($mandate);
+        $this->log("INFO","SEPA beneficiary status is $status");
+        if ($status!="ACTIVE"){
+            return false;
+        }       
+        $transaction_ref=$this->generateTransactionRef();
+        $process=$this->httpClient()->post("/rest/sepa/sct/createSct",$this->withBaseData([
            "iban" => $payment->other_data['iban'],
            "beneficiaryId" => $mandate->beneficiary_id,
            "amount" => $amount,
            "transactionRef" => $transaction_ref,
            "label" => "Refund ".empty($payment->order_ref) ? "PYM-PAYMENT-".$payment->getKey() : $payment->order_ref
-       ]));
-       $this->registerARefund($payment, $amount, $transaction_ref, Arr::get($process,"sepaTransfer"));
-       return true;
+        ]));
+        $this->registerARefund($payment, $amount, $transaction_ref, Arr::get($process,"sepaTransfer"));
+        return true;
     }
 
      public function isRefundable(pmbPayment $payment): float {
