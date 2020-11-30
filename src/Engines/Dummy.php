@@ -19,7 +19,7 @@ class Dummy extends Base {
     protected function validateConfig(array $config) {	
     }
 	
-    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
+    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null) {
         return array_merge($data,["seed" => uniqid()]);
     }
 

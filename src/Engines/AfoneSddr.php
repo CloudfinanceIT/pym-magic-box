@@ -37,7 +37,7 @@ class AfoneSddr extends Base {
         
     }
     
-    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
+    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null) {
         $iban=$this->validateIban(Arr::get($data,"iban"));				
         $customer_id=trim($customer_id);
         if (empty($customer_id)){

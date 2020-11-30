@@ -32,7 +32,7 @@ class AfoneCreditCard extends Base {
         
     }
     
-    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
+    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null) {
         if (!isset($data['tokenRef']) || empty($data['tokenRef'])){
             return $this->throwAnError("Invalid tokenRef!");
         }

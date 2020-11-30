@@ -29,7 +29,7 @@ class Braintree extends Base {
         return false;
     }
 
-    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
+    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null) {
         $n=Arr::get($data,"nonceFromTheClient");
         if (empty($n)){
             return $this->throwAnError("You must specify a 'nonceFromTheClient'!");

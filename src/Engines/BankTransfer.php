@@ -48,7 +48,7 @@ class BankTransfer extends Base {
         ];
     }
 	
-    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null): array {
+    protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null) {
         return [];
     }
 

@@ -19,6 +19,7 @@ use \Illuminate\Support\Arr;
 use \Mantonio84\pymMagicBox\Classes\aliasCreateResponse;
 use Mantonio84\pymMagicBox\Models\pmbRefund;
 use Mantonio84\pymMagicBox\Classes\Currency;
+use Mantonio84\pymMagicBox\Classes\aliasCreateResponse;
 
 abstract class Base {
 	
@@ -31,7 +32,7 @@ abstract class Base {
 	protected abstract function onProcessRefund(pmbPayment $payment, float $amount, array $data=[]): bool;
 	protected abstract function onProcessPaymentConfirm(pmbPayment $payment, array $data=[]): bool;
         protected abstract function onProcessAliasConfirm(pmbAlias $alias, array $data=[]): bool;
-	protected abstract function onProcessAliasCreate(array $data, string $name, string $customer_id="", $expires_at=null): array;	
+	protected abstract function onProcessAliasCreate(array $data, string $name, string $customer_id="", $expires_at=null);	
 	protected abstract function onProcessAliasDelete(pmbAlias $alias): bool;	
 	
 	public $performer;
