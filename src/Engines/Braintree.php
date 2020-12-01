@@ -106,7 +106,7 @@ class Braintree extends Base {
         if (!empty($BtMerchantAccountId)){
             $a['merchantAccountId']=$BtMerchantAccountId;
         }                
-        $clientToken=$this->request("clientToken", "generate", $a);
+        $clientToken=$this->request("clientToken", "generate", [$a]);
         if (!is_string($clientToken) || empty($clientToken)){
             return $this->throwAnError("Cannot generate a client token!");
         }
@@ -129,7 +129,7 @@ class Braintree extends Base {
             "bt_user" => $this->withBaseData(),            
         ])->performer()->associate($this->performer);
         $this->log("DEBUG", "Bt user not found for '$pmb_customer_id'. Creating...");        
-        $result=$this->request("customer", "create", Arr::only($customerData,['firstName','lastName','company','email','phone','fax','website','customerBrowser','customerIp']));
+        $result=$this->request("customer", "create", [Arr::only($customerData,['firstName','lastName','company','email','phone','fax','website','customerBrowser','customerIp'])]);
         $a->bt_customer_id=$result->customer->id;
         $a->save();
         $this->log("INFO", "Created bt user for '$pmb_customer_id': '".$a->bt_customer_id."'","",["cu" => $a]);
