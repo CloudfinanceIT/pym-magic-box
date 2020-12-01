@@ -26,7 +26,7 @@ class pmbBraintreeUser extends pmbBaseWithPerformer  {
     }
 
     protected function castToBtUserHash($value){
-        if (preg_match('/^[0-9a-f]{40}$/', $value)>0){
+        if (is_string($value) && preg_match('/^[0-9a-f]{40}$/', $value)>0){
             return $value;
         }else if (is_array($value)){
             ksort($value);
