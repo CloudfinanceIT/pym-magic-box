@@ -119,7 +119,7 @@ class Braintree extends Base {
         
     
     protected function getBtUser(string $pmb_customer_id, array $customerData=[]){        
-        $a=pmbBraintreeUser::ofPerformer($this->performer)->btUser($this->withBaseData())->pmbCustomer($pmb_customer_id)->first();
+        $a=pmbBraintreeUser::ofPerformers($this->performer)->btUser($this->withBaseData())->pmbCustomer($pmb_customer_id)->first();
         if ($a){
             $this->log("DEBUG", "Found bt user for '$pmb_customer_id': '".$a->bt_customer_id."'","",["cu" => $a]);
             return $a;
