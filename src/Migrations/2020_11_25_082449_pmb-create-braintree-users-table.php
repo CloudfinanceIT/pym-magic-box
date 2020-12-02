@@ -20,9 +20,7 @@ class PmbCreateBraintreeUsersTable extends Migration
             $table->string("pmb_customer_id")->index();
             $table->string("bt_customer_id")->index();
             $table->string("bt_user",40)->index();
-            $table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');                 
-            $table->unique(["pmb_customer_id","bt_user"]);
-            $table->unique(["performer_id","bt_user"]);
+            $table->foreign("performer_id")->references('id')->on('pmb_performers')->onDelete('cascade');                     
         });
     }
 
