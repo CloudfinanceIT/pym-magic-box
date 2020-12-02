@@ -35,7 +35,9 @@ class Braintree extends Base {
             return $this->throwAnError("You must specify a 'nonceFromTheClient'!");
         }
         $data['customerId']=$this->getBtUser($customer_id,$data)->bt_customer_id;      
-        Arr::set($data,"options.failOnDuplicatePaymentMethod",true);        
+        Arr::set($data,"options.failOnDuplicatePaymentMethod",true);   
+		$data['paymentMethodNonce']=$data['nonceFromTheClient'];
+		unset($data['nonceFromTheClient']);
         $result=$this->request("paymentMethod", "create", [$data]);
         return ["token" => $result->paymentMethod->token];
     }
