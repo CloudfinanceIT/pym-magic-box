@@ -125,7 +125,7 @@ abstract class Base {
                     throw paymentMethodInvalidOperationException::make("This method and/or alias does not support confirm operation!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer, "al" => $alias]);
                     return $alias;
 		}		
-		$success=$this->sandbox("onProcessAliasConfirm",[$payment,$data]);
+		$success=$this->sandbox("onProcessAliasConfirm",[$alias,$data]);
 		if ($success){
 			$alias->confirmed=true;	
 			$alias->save();
