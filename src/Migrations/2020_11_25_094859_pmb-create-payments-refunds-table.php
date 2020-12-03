@@ -20,6 +20,7 @@ class PmbCreatePaymentsRefundsTable extends Migration
             $table->text("details")->nullable();
             $table->unsignedDecimal('amount', 12, 2);
             $table->unsignedBigInteger("payment_id");            
+			$table->string("reason")->nullable();
             $table->foreign("payment_id")->references('id')->on('pmb_payments')->onDelete('cascade');    
         });
     }

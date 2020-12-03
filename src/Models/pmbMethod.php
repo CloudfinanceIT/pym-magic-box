@@ -14,6 +14,8 @@ class pmbMethod extends pmbBase {
 	public function getEngineClassNameAttribute(){		
 		return Str::start($this->engine,"\Mantonio84\pymMagicBox\Engines\\");		
 	}
+	
+	
         
         public function performers(){
             return $this->hasMany(pmbPerformer::class,"method_id");

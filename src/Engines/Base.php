@@ -237,12 +237,34 @@ abstract class Base {
 			$payment->refunded_amount=$payment->refunded_amount+$amount;		
 			$payment->save();
 			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded $amount"]);
-			event(new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment));
+			$e=new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment);
+			$e->amount=$amount;
+			event($e);
 		}else{
 			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully refunded"]);
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"refunded"));
 		}		
 		return $payment;
+	}
+	
+	protected function forceRefund(pmbPayment $payment, $amount=null, string $transaction_ref="", $details=null, $reason=null){
+		if (!is_float($amount) && !is_int($amount)){
+			$amount=$payment->refundable_amount;		
+		}else{
+			$amount=min($amount,$payment->refundable_amount);
+		}		
+		if ($amount>0){
+			$reason=$reason ?? "forced";
+			$payment->refunded_amount=$payment->refunded_amount+$amount;					
+			$payment->save();
+			$this->registerARefund($payment,$amount,$transaction_ref,$details,$reason);
+			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully force refunded $amount"]);
+			$e=new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment);
+			$e->reason=$reason;
+			$e->amount=$amount;
+			event($e);
+		}
+		return $amount;
 	}
 	
 	protected function resolveNewPaymentModel($order_ref, $amount, $currency_code, $customer_id, pmbPerformer $performer){
@@ -307,7 +329,7 @@ abstract class Base {
         
         protected function cfg(string $path, $default=null){
             return Arr::get($this->config,$path,$default);
-        }
+        }			
         
         protected function paymentFinderQuery(){
             return pmbPayment::ofPerformers($this->performer);
@@ -320,11 +342,12 @@ abstract class Base {
             return true;
         }
         
-        protected function registerARefund(pmbPayment $payment, float $amount, string $transaction_ref="", $details=null){
+        protected function registerARefund(pmbPayment $payment, float $amount, string $transaction_ref="", $details=null, $reason=null){
             $ret= pmbRefund::make([
                 "amount" => $amount,
                 "transaction_ref" => $transaction_ref,
-                "details" => $this->tryJsonEncode($details)
+                "details" => $this->tryJsonEncode($details),
+				"reason" => $reason
             ]);
             $ret->payment()->associate($payment);
             $ret->save();

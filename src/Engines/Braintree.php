@@ -5,6 +5,8 @@ use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbBraintreeUser;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Illuminate\Support\Arr;
+use \Illuminate\Support\Str;
+use \Illuminate\Http\Request;
 
 class Braintree extends Base {
     
@@ -21,7 +23,8 @@ class Braintree extends Base {
             "environment" => ["required","string","in:sandbox,production"],
             "merchantId" => ["required","string","regex:/^[a-z0-9]{16}$/"],
             "publicKey" => ["required","string","regex:/^[a-z0-9]{16}$/"],
-            "privateKey" => ["required","string","regex:/^[0-9a-f]{32}$/"]
+            "privateKey" => ["required","string","regex:/^[0-9a-f]{32}$/"],
+			"ignore_settled_status" => ["bail","nullable","boolean"],			
         ];
     }   
     
@@ -68,14 +71,17 @@ class Braintree extends Base {
         $result=$this->request("transaction", "sale", [$data]);        
         return processPaymentResponse::make([
             "billed" => true,
-            "confirmed" => true,
+            "confirmed" => ($result->transaction->status=="SETTLED" || $this->cfg("ignore_confirm",false)),
+			"tracker" => $result->transaction->id,
             "transaction_ref" => $result->transaction->id,
             "other_data" > $result->transaction->jsonSerialize()
         ]);               
     }
 
     protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = array()): bool {
-        return false;
+		$transaction=isset($data['_btt_']) ? optional($data['_btt_']) : $this->getRemoteTransaction($payment);
+		$payment->other_data=$transaction->jsonSerialize();
+        return ($transaction->status=="SETTLED");
     }
 
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = array()): bool {
@@ -90,11 +96,11 @@ class Braintree extends Base {
     }
 
     public function isConfirmable(pmbPayment $payment): bool {
-        return false;
+        return ($payment->billed && !$payment->confirmed && $payment->refunded_amount==0);
     }
 
     public function isRefundable(pmbPayment $payment): float {
-        if (!$payment->billed && !$payment->confirmed){
+        if (!$payment->billed || !$payment->confirmed){
             return 0;
         }		
         return $payment->refundable_amount;
@@ -103,6 +109,84 @@ class Braintree extends Base {
     public function supportsAliases(): bool {
         return true;
     }
+	
+	public function webhook(Request $request){
+		$request->validate([
+			"bt_signature" => ["required","string",'regex:/^[a-z0-9]{16}\|[a-f0-9]{40}$/'],
+			"bt_payload" => ["required","string",'regex:/^[a-zA-Z0-9\/\r\n+]*={0,2}$/']
+		]);
+		
+		$webhookNotification=$this->request("webhookNotification","parse",[$request->bt_signature,$request->bt_payload]);		
+		$fun="wh".ucfirst(Str::camel(strtolower($webhookNotification->kind)));
+		if (method_exists($this,$fun)){
+			$this->log("DEBUG", "Webhook calls '$fun'...",$webhookNotification);
+			return call_user_func([$this,$fun],$webhookNotification);
+		}
+		return response("nop.");
+	}
+	
+	protected function wbTransactionSettled($webhookNotification){
+		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$webhookNotification->transaction->id)->first();
+		if (is_null($payment)){
+			$this->log("ERROR", "Webhook transaction_settled failed: suitable payment not found!",$webhookNotification);		
+			return null;
+		}
+		$this->log("DEBUG", "Webhook transaction_settled: found payment #".$payment->getKey()."...",$webhookNotification,["py" => $payment]);
+		if ($payment->confirmed){
+			$this->log("INFO", "Webhook transaction_settled: payment #".$payment->getKey()." was already confirmed: skipped",$webhookNotification,["py" => $payment]);
+			return response("ok.");
+		}
+		$a=$this->confirm($payment,["_btt_" => $webhookNotification->transaction]);
+		if ($a->confirmed){
+			return response("ok.");
+		}
+		return null;
+	}
+	
+	protected function wbTransactionSettlementDeclined($webhookNotification){
+		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$webhookNotification->transaction->id)->first();
+		if (is_null($payment)){
+			$this->log("ERROR", "Webhook transaction_settled_declined failed: suitable payment not found!",$webhookNotification);		
+			return null;
+		}
+		$this->log("DEBUG", "Webhook transaction_settled_declined: found payment #".$payment->getKey()."...",$webhookNotification,["py" => $payment]);
+		if (!$payment->confirmed){
+			$this->log("INFO", "Webhook transaction_settled_declined: payment #".$payment->getKey()." not confirmed yet: proceed with decline operation",$webhookNotification,["py" => $payment]);			
+			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"payment-cancelled"));
+			return response("ok.");
+		}
+		$amount=floatval($webhookNotification->transaction->amount);
+		if ($amount<=0){
+			$amount=$payment->refundable_amount;
+		}
+		$this->forceRefund($payment, $amount, $webhookNotification->transaction->id, $webhookNotification->transaction, "transaction_settlement_declined");
+		return response("ok.");
+	}
+	
+	protected function wbDisputeLost($webhookNotification){
+		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$webhookNotification->dispute->transaction->id)->first();
+		if (is_null($payment)){
+			$this->log("ERROR", "Webhook dispute_lost failed: suitable payment not found!",$webhookNotification);		
+			return null;
+		}
+		$this->log("DEBUG", "Webhook dispute_lost: found payment #".$payment->getKey()."...",$webhookNotification,["py" => $payment]);
+		if (!$payment->confirmed){
+			$this->log("INFO", "Webhook dispute_lost: payment #".$payment->getKey()." not confirmed yet: proceed with decline operation",$webhookNotification,["py" => $payment]);			
+			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"payment-cancelled"));
+			return response("ok.");
+		}
+		$amount=floatval($webhookNotification->dispute->transaction->amount);
+		if ($amount<=0){
+			$amount=$payment->refundable_amount;
+		}
+		$this->forceRefund($payment, $amount, $webhookNotification->dispute->transaction->id, $webhookNotification->dispute, "dispute_lost");
+		return response("ok.");
+	}
+	
+	protected function wbCheck($webhookNotification){
+		$this->log("DEBUG", "Webhook test OK!",$webhookNotification);
+		return response("ok.");
+	}
     
     public function getClientToken(string $pmb_customer_id, array $customerData=[], $BtMerchantAccountId=null){
         $a=["customerId" => $this->getBtUser($pmb_customer_id,$customerData)->bt_customer_id];
@@ -116,7 +200,7 @@ class Braintree extends Base {
         return $clientToken;
     }
 	
-	protected function getRemotePayment(pmbPayment $payment){		
+	protected function getRemoteTransaction(pmbPayment $payment){		
 		return optional($this->request("transaction", "find", [$payment->transaction_ref], true));   				
 	}
     
