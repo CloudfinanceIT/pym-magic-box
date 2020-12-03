@@ -43,7 +43,7 @@ class Braintree extends Base {
     }
 
     protected function onProcessAliasDelete(pmbAlias $alias): bool {        
-        $this->request("paymentMethod","delete",[["token" => $alias->adata['token']]]);
+        $this->request("paymentMethod","delete",[$alias->adata['token']]);
         return true;
     }
 
@@ -79,6 +79,7 @@ class Braintree extends Base {
     }
 
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = array()): bool {
+		
         $result=$this->request("transaction", "refund", [$payment->transaction_ref, (string) $payment->currency->numberFormat($amount)]);   
         $this->registerARefund($payment,$amount,$result->transaction->id,$result->transaction);
         return true;
@@ -95,7 +96,7 @@ class Braintree extends Base {
     public function isRefundable(pmbPayment $payment): float {
         if (!$payment->billed && !$payment->confirmed){
             return 0;
-        }
+        }		
         return $payment->refundable_amount;
     }
 
@@ -114,6 +115,10 @@ class Braintree extends Base {
         }
         return $clientToken;
     }
+	
+	protected function getRemotePayment(pmbPayment $payment){		
+		return optional($this->request("transaction", "find", [$payment->transaction_ref], true));   				
+	}
     
     protected function withBaseData(array $data=[]){
         return array_merge($data,Arr::only($this->config, ["environment","merchantId","publicKey","privateKey"]));
@@ -138,15 +143,29 @@ class Braintree extends Base {
         return $a;
     }    
     
-    protected function request(string $gateway_name, string $gateway_function, array $args){
+    protected function request(string $gateway_name, string $gateway_function, array $args, bool $suppress_error=false){
         $pid=uniqid();
         $this->log("DEBUG","[$pid] Gateway request of ".$gateway_name." -> ".$gateway_function,$args);
         
         $gateway=$this->gateway()->{$gateway_name}();
-        $result=call_user_func_array([$gateway,$gateway_function], $args);
+		try {
+			$result=call_user_func_array([$gateway,$gateway_function], $args);
+		}catch (Exception $e){
+			$this->log($suppress_error ? "WARNING" : "CRITICAL", "[$pid] Gateway exception: ".$e->getMessage());
+			if ($suppress_error){				
+				return null;
+			}else{
+				throw $e;
+			}
+		}
         
         if ($result instanceof \Braintree\Result\Error){
-            return $this->throwAnError("[$pid] Gateway error".isset($result->message) ? ": ".$result->message : "","CRITIAL",$result);
+			if ($suppress_error){
+				$this->log("WARNING", "[$pid] Gateway error".isset($result->message) ? ": ".$result->message : "");
+				return null;
+			}else{
+				return $this->throwAnError("[$pid] Gateway error".isset($result->message) ? ": ".$result->message : "","CRITIAL",$result);
+			}
         }
         $this->log("DEBUG","[$pid] Gateway success response",$result);        
         return $result;
