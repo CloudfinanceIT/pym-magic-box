@@ -128,7 +128,17 @@ class Braintree extends Base {
 	protected function wbTransactionSettled($webhookNotification){
 		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$webhookNotification->transaction->id)->first();
 		if (is_null($payment)){
-			$this->log("ERROR", "Webhook transaction_settled failed: suitable payment not found!",$webhookNotification);		
+			$this->log("NOTICE", "Webhook transaction_settled: suitable payment not found!",$webhookNotification);		
+			if (!empty($webhookNotification->transaction->refundedTransactionId)){
+				return $this->refundViaWebhook(
+					$webhookNotification->transaction->refundedTransactionId, 
+					$webhookNotification->transaction->amount, 
+					$webhookNotification, 
+					"webhook_refund", 
+					$webhookNotification->transaction
+				);		
+				
+			}
 			return null;
 		}
 		$this->log("DEBUG", "Webhook transaction_settled: found payment #".$payment->getKey()."...",$webhookNotification,["py" => $payment]);
@@ -143,43 +153,47 @@ class Braintree extends Base {
 		return null;
 	}
 	
+	
 	protected function wbTransactionSettlementDeclined($webhookNotification){
-		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$webhookNotification->transaction->id)->first();
-		if (is_null($payment)){
-			$this->log("ERROR", "Webhook transaction_settled_declined failed: suitable payment not found!",$webhookNotification);		
-			return null;
-		}
-		$this->log("DEBUG", "Webhook transaction_settled_declined: found payment #".$payment->getKey()."...",$webhookNotification,["py" => $payment]);
-		if (!$payment->confirmed){
-			$this->log("INFO", "Webhook transaction_settled_declined: payment #".$payment->getKey()." not confirmed yet: proceed with decline operation",$webhookNotification,["py" => $payment]);			
-			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"payment-cancelled"));
-			return response("ok.");
-		}
-		$amount=floatval($webhookNotification->transaction->amount);
-		if ($amount<=0){
-			$amount=$payment->refundable_amount;
-		}
-		$this->forceRefund($payment, $amount, $webhookNotification->transaction->id, $webhookNotification->transaction, "transaction_settlement_declined");
-		return response("ok.");
-	}
+		return $this->refundViaWebhook(
+			$webhookNotification->transaction->id, 
+			$webhookNotification->transaction->amount, 
+			$webhookNotification, 
+			"transaction_settlement_declined", 
+			$webhookNotification->transaction
+		);		
+	}	
 	
 	protected function wbDisputeLost($webhookNotification){
-		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$webhookNotification->dispute->transaction->id)->first();
+		return $this->refundViaWebhook(
+			$webhookNotification->dispute->transaction->id, 
+			$webhookNotification->dispute->transaction->amount, 
+			$webhookNotification, 
+			"dispute_lost", 
+			$webhookNotification->dispute
+		);		
+	}
+	
+	protected function refundViaWebhook($transactionId, $amount, $webhookNotification, $reason, $refundDetails=""){
+		$webhookNotificationKind=$$webhookNotification->kind;
+		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$transactionId)->first();
 		if (is_null($payment)){
-			$this->log("ERROR", "Webhook dispute_lost failed: suitable payment not found!",$webhookNotification);		
+			$this->log("ERROR", "Webhook refund $webhookNotificationKind failed: suitable payment not found!",$webhookNotification);		
 			return null;
 		}
-		$this->log("DEBUG", "Webhook dispute_lost: found payment #".$payment->getKey()."...",$webhookNotification,["py" => $payment]);
+		$this->log("DEBUG", "Webhook refund $webhookNotificationKind: found payment #".$payment->getKey()."...",$webhookNotification,["py" => $payment]);
 		if (!$payment->confirmed){
-			$this->log("INFO", "Webhook dispute_lost: payment #".$payment->getKey()." not confirmed yet: proceed with decline operation",$webhookNotification,["py" => $payment]);			
+			$this->log("INFO", "Webhook refund $webhookNotificationKind: payment #".$payment->getKey()." not confirmed yet: proceed with decline operation",$webhookNotification,["py" => $payment]);			
 			event(new \Mantonio84\pymMagicBox\Events\Payment\Error($this->merchant_id,$payment,"payment-cancelled"));
 			return response("ok.");
 		}
-		$amount=floatval($webhookNotification->dispute->transaction->amount);
+		$amount=floatval($amount);
 		if ($amount<=0){
 			$amount=$payment->refundable_amount;
+		}else{
+			$amount=min($amount,$payment->refundable_amount);
 		}
-		$this->forceRefund($payment, $amount, $webhookNotification->dispute->transaction->id, $webhookNotification->dispute, "dispute_lost");
+		$this->forceRefund($payment, $amount, $transaction, $refundDetails, $reason);
 		return response("ok.");
 	}
 	
