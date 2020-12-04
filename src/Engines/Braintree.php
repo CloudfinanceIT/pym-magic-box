@@ -132,6 +132,7 @@ class Braintree extends Base {
 			if (!empty($webhookNotification->transaction->refundedTransactionId)){
 				return $this->refundViaWebhook(
 					$webhookNotification->transaction->refundedTransactionId, 
+					$webhookNotification->transaction->id,
 					$webhookNotification->transaction->amount, 
 					$webhookNotification, 
 					"webhook_refund", 
@@ -157,6 +158,7 @@ class Braintree extends Base {
 	protected function wbTransactionSettlementDeclined($webhookNotification){
 		return $this->refundViaWebhook(
 			$webhookNotification->transaction->id, 
+			$webhookNotification->transaction->id,
 			$webhookNotification->transaction->amount, 
 			$webhookNotification, 
 			"transaction_settlement_declined", 
@@ -167,6 +169,7 @@ class Braintree extends Base {
 	protected function wbDisputeLost($webhookNotification){
 		return $this->refundViaWebhook(
 			$webhookNotification->dispute->transaction->id, 
+			$webhookNotification->dispute->transaction->id,
 			$webhookNotification->dispute->transaction->amount, 
 			$webhookNotification, 
 			"dispute_lost", 
@@ -174,7 +177,7 @@ class Braintree extends Base {
 		);		
 	}
 	
-	protected function refundViaWebhook($transactionId, $amount, $webhookNotification, $reason, $refundDetails=""){
+	protected function refundViaWebhook($transactionId, $refundTransactionId, $amount, $webhookNotification, $reason, $refundDetails=""){
 		$webhookNotificationKind=$$webhookNotification->kind;
 		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$transactionId)->first();
 		if (is_null($payment)){
@@ -193,7 +196,7 @@ class Braintree extends Base {
 		}else{
 			$amount=min($amount,$payment->refundable_amount);
 		}
-		$this->forceRefund($payment, $amount, $transaction, $refundDetails, $reason);
+		$this->forceRefund($payment, $amount, $refundTransactionId, $refundDetails, $reason);
 		return response("ok.");
 	}
 	
