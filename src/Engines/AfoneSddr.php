@@ -294,6 +294,34 @@ class AfoneSddr extends Base {
         $this->log("DEBUG","Check of ".count($mandates)." SEPA beneficiary completed!");
         return $mandates;
     }
+	
+	public function findSepaTransfers(array $data=[],int $per_request_limit=100){
+		$this->log("DEBUG","Starting afone SEPA transfers search...");
+        $client=HttpClient::make($this->merchant_id, $this->cfg("base_uri"))
+                ->withLogData(["pe" => $this->performer])
+                ->validateResponsesWith([
+                    "empty" => ["required","boolean"],
+                    "nbTransfers" => ["required", "integer"],
+                    "sepaTransfer" => ["required","array"],
+                    "sepaTransfer.*" => ["bail","nullable","array"],
+                    "sepaTransfer.*.ok" => ["bail","nullable","integer","in:0,1"],
+                    "sepaTransfer.*.confirmed" => ["bail","nullable","integer","in:0,1"],
+					"sepaTransfer.*.transactionRef" => ["bail","nullable","string"],
+                ]);
+        $page=1;
+        $max=null;
+        $found=array();      		
+        while (is_null($max) || $page<=$max){
+            $segment=$client->post("/rest/sepa/transfer/find", $this->withBaseData(array_merge(["transferType" => "SDDR"],$data,["limit" => $per_request_limit, "page" => $page])));            
+            $found=array_merge($found,array_values($segment['sepaTransfer']));       
+            if (is_null($max)){
+                $max=ceil($segment['nbTransfers']/$per_request_limit);
+            }
+            $page++;
+        }
+        $this->log("INFO","Afone SEPA transfers search completed: found ".count($found)." afone items",$data);
+        return collect($found);
+	}
     
     protected function prepareMandateForRefund(pmbAfoneMandate $mandate){
         if (is_null($mandate->beneficiary_id)){
