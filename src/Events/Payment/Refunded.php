@@ -1,5 +1,6 @@
 <?php
 namespace Mantonio84\pymMagicBox\Events\Payment;
+use Mantonio84\pymMagicBox\Models\pmbPayment;
 
 class Refunded extends Base {
 	
