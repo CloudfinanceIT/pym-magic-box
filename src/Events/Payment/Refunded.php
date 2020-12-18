@@ -7,8 +7,8 @@ class Refunded extends Base {
 	public $reason="user-request";
 	public $amount=0;
 	
-	public function __construct(string $merchant_id, pmbPayment $payment){
+	public function __construct(string $merchant_id, pmbPayment $payment, float $amount){
 		parent::__construct($merchant_id,$payment);
-		$this->amount=$payment->refundable_amount;
+		$this->amount=$amount;
 	}
 }

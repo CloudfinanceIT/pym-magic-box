@@ -237,7 +237,7 @@ abstract class Base {
 			$payment->refunded_amount=$payment->refunded_amount+$amount;		
 			$payment->save();
 			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully refunded $amount"]);
-			$e=new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment);
+			$e=new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment,$amount);
 			$e->amount=$amount;
 			event($e);
 		}else{
@@ -259,7 +259,7 @@ abstract class Base {
 			$payment->save();
 			$this->registerARefund($payment,$amount,$transaction_ref,$details,$reason);
 			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully force refunded $amount"]);
-			$e=new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment);
+			$e=new \Mantonio84\pymMagicBox\Events\Payment\Refunded($this->merchant_id,$payment,$amount);
 			$e->reason=$reason;
 			$e->amount=$amount;
 			event($e);
