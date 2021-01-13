@@ -24,7 +24,7 @@ class Braintree extends Base {
             "merchantId" => ["required","string","regex:/^[a-z0-9]{16}$/"],
             "publicKey" => ["required","string","regex:/^[a-z0-9]{16}$/"],
             "privateKey" => ["required","string","regex:/^[0-9a-f]{32}$/"],
-			"ignore_settled_status" => ["bail","nullable","boolean"],			
+			"ignore_confirm" => ["bail","nullable","boolean"],			
         ];
     }   
     
