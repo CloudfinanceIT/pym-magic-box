@@ -117,12 +117,12 @@ class Braintree extends Base {
 		]);
 		
 		$webhookNotification=$this->request("webhookNotification","parse",[$request->bt_signature,$request->bt_payload]);		
-		$fun="wh".ucfirst(Str::camel(strtolower($webhookNotification->kind)));
+		$fun="wb".ucfirst(Str::camel(strtolower($webhookNotification->kind)));
 		if (method_exists($this,$fun)){
 			$this->log("DEBUG", "Webhook calls '$fun'...",$webhookNotification);
 			return call_user_func([$this,$fun],$webhookNotification);
 		}
-		return response("nop.");
+		return response("nop.",422);
 	}
 	
 	protected function wbTransactionSettled($webhookNotification){
