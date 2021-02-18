@@ -57,6 +57,12 @@ class BankTransfer extends Base {
     }
 
     protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = array()): bool {
+		if (isset($data['forced'])){
+			if (!is_bool($data['forced'])){
+				return $this->throwAnError("Invalid forced flag value!");
+			}
+			return $data['forced'];
+		}
         if (!isset($data['filePath'])){
             return $this->throwAnError("No filepath given!");
         }                
