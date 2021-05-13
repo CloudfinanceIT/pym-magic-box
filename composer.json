@@ -1,5 +1,5 @@
 {
-	"name" : "mantonio84/pym-magic-box",
+	"name" : "CloudfinanceIT/pym-magic-box",
 	"description" : "Gateway di pagamento per Laravel con supporto metodi di pagamento multipli",
 	"require" : {
 		"php" : "^7.2.0",
