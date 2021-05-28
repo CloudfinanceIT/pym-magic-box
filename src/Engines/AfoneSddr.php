@@ -62,7 +62,7 @@ class AfoneSddr extends Base {
                 "transferDate" => now()->format("YmdHis"),          
                 "iban" => $adata['iban'],
                 "customer" => json_encode($customer),
-                "redirectUrl" => $this->getListenURL("mandate-signed",["t" => "a"]),
+                "redirectUrl" => $this->getListenURL("mandate-signed-alias"),
                 "transactionRef" => $transactionRef,
             ];          
             $process=$this->httpClient()->post("/rest/sepa/sdd/signMandateAndCreate", $this->withBaseData($pd));            
@@ -173,7 +173,7 @@ class AfoneSddr extends Base {
                 "transferDate" => now()->format("YmdHis"),          
                 "iban" => $data['iban'],
                 "customer" => json_encode($customer),
-                "redirectUrl" => $this->getListenURL("mandate-signed",["t" => "p"]),
+                "redirectUrl" => $this->getListenURL("mandate-signed-payment"),
                 "transactionRef" => $transactionRef,
             ];
             if (isset($data['bic'])){
@@ -209,31 +209,24 @@ class AfoneSddr extends Base {
 		return pmbAfoneMandate::ofPerformers($this->performer)->iban($iban)->customer($customer_id)->exists();
 	}
     
-    public function listenMandateSigned(array $request){
+    public function listenMandateSignedPayment(array $request){
         $request=array_change_key_case($request, CASE_LOWER);
         $v=Validator::make($request,[
             "result" => ["required","string",new EqualsTo("OK")],
             "cancelled" => ["required","string",new EqualsTo("false")],
-            "demandesignatureid" => ["required","integer","min:1"],
-            "t" => ["required","string","in:p,a"]
+            "demandesignatureid" => ["required","integer","min:1"]           
         ]);
         if ($v->fails()){
             throw pymMagicBoxValidationException::make("SEPA Mandate sign error")->withErrors($v->getMessageBag())->loggable("EMERGENCY",$this->merchant_id,["pe" => $this->performer]);
         }
         $did=intval($request['demandesignatureid']);
         $payment=null;
-        $alias=null;
-        if ($request['t']=="p"){
-            $payment=pmbPayment::ofPerformers($this->performer)->billed(false)->confirmed(false)->refunded(false)->where("tracker", "DID:".$did)->first();
-            if (is_null($payment)){
-                return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Pending payment not found!");
-            }
-        }else{
-            $alias=pmbAlias::ofPerformers($this->performer)->confirmed(false)->where("tracker", "DID:".$did)->first();
-             if (is_null($alias)){
-                return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Pending alias not found!");
-            }
+       
+        $payment=pmbPayment::ofPerformers($this->performer)->billed(false)->confirmed(false)->refunded(false)->where("tracker", "DID:".$did)->first();
+        if (is_null($payment)){
+            return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Pending payment not found!");
         }
+        
         
         $mandate=pmbAfoneMandate::ofPerformers($this->performer)->confirmed(false)->where("demande_signature_id",$did)->first();
         if (is_null($mandate)){
@@ -247,21 +240,58 @@ class AfoneSddr extends Base {
         if (!$mandate->save()){
              return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Cannot save mandate record!");
         }        
-        if ($request['t']=="p"){
-            $py=$this->confirm($payment, ["mandate" => $mandate]);        
-            if ($py->confirmed){                            
-                $this->log("INFO","SEPA Mandate signature process completed successfully","",["py" => $payment]);                
-                return redirect()->route($this->config["after-mandate-sign-route"],["pymMagicBoxPayment" => $this->merchant_id."-".$py->getKey()]);
-            }
-        }else{
-            $al=$this->aliasConfirm($alias,["mandate" => $mandate]);
-            if ($al->confirmed){            
-                $this->log("INFO","SEPA Mandate signature process completed successfully","",["al" => $al]);
-                return redirect()->route($this->config["after-mandate-sign-route"],["pymMagicBoxAlias" => $this->merchant_id."-".$al->getKey()]);
-            }
+        
+        $py=$this->confirm($payment, ["mandate" => $mandate]);        
+        if ($py->confirmed){                            
+            $this->log("INFO","SEPA Mandate signature process completed successfully","",["py" => $payment]);                
+			return redirect()->route($this->config["after-mandate-sign-route"],["pymMagicBoxPayment" => $this->merchant_id."-".$py->getKey()]);
         }
+        
         return response("Mandate sign confirmation failed!",503);
     }
+	
+	public function listenMandateSignedAlias(array $request){
+        $request=array_change_key_case($request, CASE_LOWER);
+        $v=Validator::make($request,[
+            "result" => ["required","string",new EqualsTo("OK")],
+            "cancelled" => ["required","string",new EqualsTo("false")],
+            "demandesignatureid" => ["required","integer","min:1"]            
+        ]);
+        if ($v->fails()){
+            throw pymMagicBoxValidationException::make("SEPA Mandate sign error")->withErrors($v->getMessageBag())->loggable("EMERGENCY",$this->merchant_id,["pe" => $this->performer]);
+        }
+        $did=intval($request['demandesignatureid']);
+        $payment=null;
+        $alias=null;
+      
+        $alias=pmbAlias::ofPerformers($this->performer)->confirmed(false)->where("tracker", "DID:".$did)->first();
+		if (is_null($alias)){
+            return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Pending alias not found!");
+        }
+        
+        
+        $mandate=pmbAfoneMandate::ofPerformers($this->performer)->confirmed(false)->where("demande_signature_id",$did)->first();
+        if (is_null($mandate)){
+            return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Pending mandate record not found!");
+        }
+        $this->httpClient()->post("/rest/sepa/sdd/endCreate",$this->withBaseData([
+            "transactionRef" =>	$mandate->first_transaction_ref,
+            "signId" => $did
+        ]));        
+        $mandate->confirmed=true;
+        if (!$mandate->save()){
+             return $this->throwAnError("SEPA Mandate sign error","EMERGENCY","Cannot save mandate record!");
+        }        
+   
+        $al=$this->aliasConfirm($alias,["mandate" => $mandate]);
+        if ($al->confirmed){            
+			$this->log("INFO","SEPA Mandate signature process completed successfully","",["al" => $al]);
+            return redirect()->route($this->config["after-mandate-sign-route"],["pymMagicBoxAlias" => $this->merchant_id."-".$al->getKey()]);
+        }
+        
+        return response("Mandate sign confirmation failed!",503);
+    }
+    
     
     public function isConfirmable(pmbPayment $payment): bool{
         return !$payment->billed && !$payment->confirmed && !$payment->refunded && !empty($payment->tracker);
