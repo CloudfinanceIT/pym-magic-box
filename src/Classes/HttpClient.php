@@ -3,7 +3,7 @@ namespace Mantonio84\pymMagicBox\Classes;
 use Mantonio84\pymMagicBox\Logger as pmbLogger;
 use Mantonio84\pymMagicBox\Models\pmbPerformer;
 use \Illuminate\Support\Str;
-use \Illuminate\Validation\Validator;
+use \Illuminate\Support\Facades\Validator;
 use \Mantonio84\pymMagicBox\Exceptions\httpClientException;
     
 class HttpClient extends \Mantonio84\pymMagicBox\Base {
