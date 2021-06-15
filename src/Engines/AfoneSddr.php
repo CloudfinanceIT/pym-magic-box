@@ -332,7 +332,7 @@ class AfoneSddr extends Base {
                 ->validateResponsesWith([
                     "empty" => ["required","boolean"],
                     "nbTransfers" => ["required", "integer"],
-                    "sepaTransfer" => ["required","array"],
+                    "sepaTransfer" => ["present","array"],
                     "sepaTransfer.*" => ["bail","nullable","array"],
                     "sepaTransfer.*.ok" => ["bail","nullable","integer","in:0,1"],
                     "sepaTransfer.*.confirmed" => ["bail","nullable","integer","in:0,1"],
