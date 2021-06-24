@@ -1,9 +1,10 @@
 <?php
 namespace Mantonio84\pymMagicBox\Models;
 use \Mantonio84\pymMagicBox\Alias;
+use \Illuminate\Database\Eloquent\SoftDeletes;
 
 class pmbAlias extends pmbBaseWithPerformer  {
-	
+	 use SoftDeletes;
 	
 	protected $guarded=["id"];
 	protected $casts=["expires_at" => "datetime", "adata" => "array","confirmed_at" => "datetime"];

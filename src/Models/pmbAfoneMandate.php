@@ -1,9 +1,10 @@
 <?php
 namespace Mantonio84\pymMagicBox\Models;
-
+use \Illuminate\Database\Eloquent\SoftDeletes;
 
 class pmbAfoneMandate extends pmbBaseWithPerformer  {	
-	
+	 use SoftDeletes;
+	 
 	protected $guarded=["id"];
         protected $casts=["confirmed_at" => "datetime", "beneficiary_ready" => "boolean"];
         protected $appends=["confirmed"];
