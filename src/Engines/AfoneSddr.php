@@ -168,7 +168,7 @@ class AfoneSddr extends Base {
             $transactionRef=$this->generateTransactionRef();
             $pd=[                
                 "transferType" => "SDDR",                
-                "amount" => $payment->amount*100,
+                "amount" => intval($payment->amount*100),
                 "label" => $data['label'],
                 "transferDate" => now()->format("YmdHis"),          
                 "iban" => $data['iban'],
