@@ -1,2 +1,5 @@
 .phpversion
 .git
+.buildpath
+.settings
+.project
