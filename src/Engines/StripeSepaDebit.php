@@ -52,7 +52,10 @@ class StripeSepaDebit extends Base
 
     protected function validateConfig(array $config)
     {
-        // TODO...
+        return [
+            "secret_key" => ["required", "string", "alpha_num"],
+            "public_key" => ["required", "string", "alpha_num"]
+        ];
     }
 
     public function isAliasConfirmable(pmbAlias $alias): bool

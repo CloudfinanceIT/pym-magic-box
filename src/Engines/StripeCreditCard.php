@@ -53,7 +53,10 @@ class StripeCreditCard extends Base
 
     protected function validateConfig(array $config)
     {
-        // TODO...
+        return [
+            "secret_key" => ["required", "string", "alpha_num"],
+            "public_key" => ["required", "string", "alpha_num"]
+        ];
     }
 
     public function isAliasConfirmable(pmbAlias $alias): bool
@@ -68,7 +71,7 @@ class StripeCreditCard extends Base
 
     protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = [], string $customer_id): processPaymentResponse
     {
-        // TODO...
+        // TODO...      
     }
 
     public function isRefundable(pmbPayment $payment): float
