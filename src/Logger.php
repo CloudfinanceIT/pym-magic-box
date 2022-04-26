@@ -84,50 +84,56 @@ class Logger {
 		
 		$minLevel=intval(array_search(intval($ml),static::$levels));
 		
-		if ($minLevel>$level){
+		if ($minLevel>$level) {
 			return null;
 		}
 		
 		$attributes=array_intersect_key($params,array_flip(["method_name", "alias_id", "performer_id", "payment_id", "amount", "customer_id", "order_ref", "message", "details", "currency_code"]));		
-		foreach ($params as $md){
-                    if ($md instanceof pmbLoggable){
-			$attributes=array_merge(array_filter($md->getPmbLogData()),$attributes);
-                    }
+		foreach ($params as $md) {
+            if ($md instanceof pmbLoggable) {
+    			$attributes=array_merge(array_filter($md->getPmbLogData()),$attributes);
+            }
 		}
-                if (isset($attributes['details']) && !is_scalar($attributes['details'])){
-                    $attributes['details']=$this->tryJsonEncode($attributes['details']);
-                }
-		$attributes=array_filter($attributes,"is_scalar");
+		
+        if (isset($attributes['details']) && !is_scalar($attributes['details'])){
+            $attributes['details']=$this->tryJsonEncode($attributes['details']);
+        }
+        
+		$attributes = array_filter($attributes,"is_scalar");
 		$attributes['level']=$level;
 		$attributes['merchant_id']=$merchant_id;
-                $attributes['session_id']=session()->getId();
-		if (isset($attributes['message'])){
-                    $attributes['message']=Str::limit($attributes['message'],250);
+        $attributes['session_id']=session()->getId();
+        
+		if (isset($attributes['message'])) {
+            $attributes['message']=Str::limit($attributes['message'],250);
 		}		
-                if (isset($attributes['currency_code']) && !Currency::exists($attributes['currency_code'])){
-                    unset($attributes['currency_code']);
-                }
-		$a=new pmbLog($attributes);
+		
+        if (isset($attributes['currency_code']) && !Currency::exists($attributes['currency_code'])) {
+            unset($attributes['currency_code']);
+        }
+        
+		$a = new pmbLog($attributes);
 		$a->save();
+		
 		return $a;
 	}
 	
 	public function rotate(bool $forced=false){		
-            if (!Cache::has("pymMagicBox.logRotatedAt") || ($forced)){
-                $interval=config("pymMagicBox.log_rotation",false);
-                if (is_string($interval)){
-                    $interval=explode(" ",$interval);
-                }
-                if (is_array($interval) && count($interval)==2){			
-                    $when=now()->sub(...$interval);                    
-                }else if ($interval instanceof \Carbon\CarbonInterval){
-                    $when=now()->sub($interval);                    
-                }
-                if (isset($when) && isset($lwhen)){
-                    pmbLog::where("created_at","<=",$when)->delete();
-                    Cache::put("pymMagicBox.logRotatedAt",1,Carbon::tomorrow());
-                }
+        if (!Cache::has("pymMagicBox.logRotatedAt") || ($forced)) {
+            $interval=config("pymMagicBox.log_rotation",false);
+            if (is_string($interval)) {
+                $interval=explode(" ",$interval);
             }
+            if (is_array($interval) && count($interval)==2) {			
+                $when=now()->sub(...$interval);                    
+            } else if ($interval instanceof \Carbon\CarbonInterval) {
+                $when=now()->sub($interval);                    
+            }
+            if (isset($when) && isset($lwhen)){
+                pmbLog::where("created_at","<=",$when)->delete();
+                Cache::put("pymMagicBox.logRotatedAt",1,Carbon::tomorrow());
+            }
+        }
 	}
         
     protected function tryJsonEncode($items, $default=null){

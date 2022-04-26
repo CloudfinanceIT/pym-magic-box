@@ -32,7 +32,7 @@ class Gateway extends Base {
 		$kr=md5($this->merchant_id.":::".$name);
         if (!array_key_exists($kr, self::$engines)){                  
             self::$engines[$kr]=null;
-            $performer=$this->resolvePerformer($name);              
+            $performer=$this->resolvePerformer($name);
             if ($performer){
                self::$engines[$kr]=new Engine($this->merchant_id,$performer->getEngine());
             }
