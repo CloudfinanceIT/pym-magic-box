@@ -5,18 +5,19 @@ use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 
+
 /**
- * Classe per il pagemnto con mandato Sepa Debit tramite 
+ * Classe per il pagemnto con carte di credito tramite
  * Stripe.
- * 
+ *
  * @author Agostino Pagnozzi
  */
-class StripeSepaDebit extends Base 
+class Stripe extends Base 
 {
     public static function autoDiscovery()
     {
         return [
-            "name" => "stripe_sepa_debit",          
+            "name" => "stripe",          
         ];
     }
     
@@ -70,7 +71,7 @@ class StripeSepaDebit extends Base
 
     protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = [], string $customer_id): processPaymentResponse
     {
-        // TODO...
+        // TODO...      
     }
 
     public function isRefundable(pmbPayment $payment): float
@@ -80,5 +81,15 @@ class StripeSepaDebit extends Base
         }
         
         return $payment->refundable_amount;
+    }
+    
+    
+    /**
+     * METODI SPECIFICI DI STRIPE
+     */
+    
+    public function createPaymentIntent()
+    {
+        // TODO...
     }
 }
