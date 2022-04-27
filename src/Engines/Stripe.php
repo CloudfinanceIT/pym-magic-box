@@ -178,7 +178,7 @@ class Stripe extends Base
         try {
             $event = \Stripe\Webhook::constructEvent(
                 $payload, $signature, $this->_utils->getEndpointSecretKey()
-                );
+            );
         } catch(\UnexpectedValueException $e) {
             $errorMsg = "Payload non valido.";
             return false;
@@ -231,6 +231,17 @@ class Stripe extends Base
         }
 
         return $customer;
+    }
+    
+    
+    /**
+     * Chiave Stripe pubblicabili.
+     * 
+     * @return string
+     */
+    public function getPublicKey()
+    {
+        return $this->config['public_key'] ?? '';
     }
     
     
