@@ -74,7 +74,7 @@ class Braintree extends Base {
             "confirmed" => ($result->transaction->status=="SETTLED" || $this->cfg("ignore_confirm",false)),
 			"tracker" => $result->transaction->id,
             "transaction_ref" => $result->transaction->id,
-            "other_data" > $result->transaction->jsonSerialize()
+            "other_data" => $result->transaction->jsonSerialize()
         ]);               
     }
 
