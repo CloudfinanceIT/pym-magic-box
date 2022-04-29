@@ -5,6 +5,7 @@ use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Mantonio84\pymMagicBox\Models\pmbStripeCustomer;
+use Stripe\PaymentIntent;
 
 
 /**
@@ -78,8 +79,56 @@ class Stripe extends Base
 
     protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = [], string $customer_id): processPaymentResponse
     {
-        // TODO...      
+        if (!empty($alias_data)) {
+            // TODO...
+            // Pagamento con metodo salvato...
+        }
+        
+        // Dati di risposta:
+        $paymentIntentId = $data['payment_intent'];
+        $paymentIntentClientSecret = $data['payment_intent_client_secret'];
+        
+        // Payment intent:
+        $paymentIntent = $this->getPaymentIntent($paymentIntentId);
+        
+        // Payment intent non valido:
+        if ($paymentIntent == null || $paymentIntent['client_secret'] != $paymentIntentClientSecret) {
+            return $this->throwAnError(__("Token di pagamento non valido."));
+        }
+        
+        // Altrimenti controllo il paymentIntent per vedere se è andato tutto bene:
+        
+        // Dati del pagamento:
+        $amount = $paymentIntent->amount_received;
+        $currency = strtoupper($paymentIntent->currency);
+        
+        // Controlla che il pagamento effettuato abbia valuta e importo corretti:
+        if ($amount < $payment->amount || $currency != $payment->currency_code) {
+            return $this->throwAnError(__("Importo o valuta del pagamento non valida. Ottenuto: " . $amount . " " . $currency . ", atteso: " . $payment->amount . " " . $payment->currency_code));
+        }
+        
+        // Stato del pagamento:
+        $status = $paymentIntent->status;
+        $billed = true;
+        $confirmed = false;
+        
+        if ($status == PaymentIntent::STATUS_PROCESSING) {
+            // niente da cambiare...
+        } else if ($status == PaymentIntent::STATUS_SUCCEEDED) {
+            $confirmed = true;
+        } else {
+            $billed = false;
+        }
+        
+        return processPaymentResponse::make([
+            "billed" => $billed,
+            "confirmed" => $confirmed, 
+            "tracker" => $paymentIntent->id,
+            "transaction_ref" => $paymentIntent->id,
+            "other_data" => []
+        ]);  
     }
+    
 
     public function isRefundable(pmbPayment $payment): float
     {
@@ -162,7 +211,27 @@ class Stripe extends Base
         
         return $paymentIntent;
     }
-       
+    
+    
+    /**
+     * Prende un payment_intent da Stripe.
+     * 
+     * @param string $paymentIntentId
+     * 
+     * @return \Stripe\PaymentIntent|null
+     */
+    public function getPaymentIntent($paymentIntentId)
+    {
+        try {
+            $paymentIntent = $this->_client->paymentIntents->retrieve($paymentIntentId);
+        } catch (\Exception $ex) {
+            $this->log("ERROR", "Stripe PYM Engine - Payment Intents retrieving error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
+            return null;
+        }
+        
+        return $paymentIntent;
+    }
+    
     
     /**
      * Controlla che la firma di un payload ricevuto da un webhook sia valida.
