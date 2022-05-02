@@ -35,7 +35,7 @@ class Stripe extends Base
 
     protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = []): bool
     {
-        // TODO...
+        return true;
     }
 
     protected function onProcessAliasDelete(pmbAlias $alias): bool
@@ -119,7 +119,7 @@ class Stripe extends Base
         } else {
             $billed = false;
         }
-        
+                
         return processPaymentResponse::make([
             "billed" => $billed,
             "confirmed" => $confirmed, 
@@ -137,6 +137,38 @@ class Stripe extends Base
         }
         
         return $payment->refundable_amount;
+    }
+    
+    
+    public function webhook(Request $request)
+    {   
+        // Signature inviata da Stripe:
+        $signature = $request->header('stripe-signature');
+        
+        // Payload della request:
+        $payload = $request->getContent();
+        
+        // Eventuale messaggio di errore di validazione della richiesta:
+        $errorMsg = null;
+        
+        // Validazione della richiesta:
+        $event = $this->_getWebhookEvent($signature, $payload, $errorMsg);
+        
+        // Se c'è un errore lo logga e termina:
+        if (false === $event) {
+            $this->log("ERROR", "Stripe webhook not valid!", $errorMsg, ['signature' => $signature, 'payload' => $payload ]);
+            return abort(400, $errorMsg);
+        }
+        
+        // Log dell'evento:
+        $this->log("INFO", "Stripe webhook event", [  'object' => $event->object, 'id' => $event->id, 'type' => $event->type, 'account' => $event->account, 'api_version' => $event->api_version, 'created' => $event->created, 'data' => $event->data->toArray() ]);
+        
+        $managed = $this->_processEvent($event);
+        if (false === $managed) {
+            return abort(400, "Unexpected event!");
+        }
+        
+        return response("ok.");
     }
     
     
@@ -223,7 +255,7 @@ class Stripe extends Base
     public function getPaymentIntent($paymentIntentId)
     {
         try {
-            $paymentIntent = $this->_client->paymentIntents->retrieve($paymentIntentId);
+            $paymentIntent = $this->_getClient()->paymentIntents->retrieve($paymentIntentId);
         } catch (\Exception $ex) {
             $this->log("ERROR", "Stripe PYM Engine - Payment Intents retrieving error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
             return null;
@@ -242,7 +274,7 @@ class Stripe extends Base
      *
      * @return false
      */
-    public function getWebhookEvent($signature, $payload = "", &$errorMsg = null)
+    protected function _getWebhookEvent($signature, $payload = "", &$errorMsg = null)
     {
         try {
             $event = \Stripe\Webhook::constructEvent(
@@ -450,5 +482,98 @@ class Stripe extends Base
     protected function _formatCurrency($currency)
     {
         return strtolower($currency);
+    }
+        
+    
+    /**
+     * Processa un'evento Stripe.
+     * 
+     * @param \Stripe\Event $event
+     *
+     * @return true se l'evento è stato gestito, false altrimenti.
+     */
+    protected function _processEvent(\Stripe\Event $event)
+    {
+        switch ($event->type) {
+            case \Stripe\Event::PAYMENT_INTENT_SUCCEEDED:
+                /**
+                 * "payment_intent.succeeded": pagamento riuscito.
+                 */
+                /**
+                 * @var \Stripe\PaymentIntent $paymentIntent
+                 */
+                $paymentIntent = $event->data->object;      
+                
+                $this->_webhookPaymentIntentSucceeded($paymentIntent);
+                break;
+                    
+            case \Stripe\Event::PAYMENT_INTENT_PAYMENT_FAILED:
+                /**
+                 * "payment_intent.payment_failed": pagamento non andato a buon fine
+                 */
+                // TODO...
+                break;
+                
+            case \Stripe\Event::CHARGE_DISPUTE_CREATED:
+                /**
+                 * "charge.dispute.created": contestazione iniziata
+                 */                
+                // TODO: avvertire l'utente che una disputa è stata creata...
+                break;
+                
+            case \Stripe\Event::CHARGE_DISPUTE_CLOSED:
+                /**
+                 * "charge.dispute.closed": contestazione persa
+                 */
+                // TODO...
+                break;
+                
+            case \Stripe\Event::MANDATE_UPDATED:
+                // TODO...
+                break;
+                    
+            default:
+                return false;
+                break;
+        }
+        
+        return true;
+    }
+    
+    
+    /**
+     * Pagamento effettuato con successo.
+     * 
+     * @param \Stripe\PaymentIntent $paymentIntent
+     * 
+     * @return boolean
+     */
+    protected function _webhookPaymentIntentSucceeded(\Stripe\PaymentIntent $paymentIntent)
+    {
+        // Cerca il pagamento:
+        $payment = pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent->id)->first();
+        
+        // Se non lo trova lo segnala:
+        if (is_null($payment)) {
+            $this->log("NOTICE", "[WB] 'payment_intent.succeeded': suitable payment not found!", $paymentIntent);
+            return false;
+        }
+        
+        // Pagamento trovato:
+        $this->log("DEBUG", "[WB] 'payment_intent.succeeded': found payment #" . $payment->getKey() . "...", $paymentIntent, ["py" => $payment]);
+        
+        // Se il pagamento era già confermato, tutto ok:
+        if ($payment->confirmed) {
+            $this->log("NOTICE", "[WB] 'payment_intent.succeeded': payment #" . $payment->getKey() . " was already confirmed: skipped", $paymentIntent, ["py" => $payment]);
+            return true;
+        }
+        
+        // Altrimenti lo conferma:
+        $confirmedPayment = $this->confirm($payment);
+        if ($confirmedPayment->confirmed) {
+            return true;
+        }
+        
+        return false;
     }
 }

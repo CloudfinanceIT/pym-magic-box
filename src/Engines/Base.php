@@ -194,7 +194,7 @@ abstract class Base
 					event(new \Mantonio84\pymMagicBox\Events\Payment\Billed($this->merchant_id,$payment));
                     if ($process->confirmed){
                         pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "py" => $payment, "message" => "Successfully auto confirmed"]);
-                        event(\Mantonio84\pymMagicBox\Events\Payment\Confirmed::make($this->merchant_id,$payment)->with("contemporary_billing",true));
+                        event(\Mantonio84\pymMagicBox\Events\Payment\Confirmed::make($this->merchant_id,$payment)->with("contemporary_billing",true));                        
                     }
 				} else {
 					pmbLogger::warning($this->performer->merchant_id,array_merge(compact("amount","customer_id","order_ref","alias"),["pe" => $this->performer, "py" => $payment, "message" => "Unsuccessfully charged"]));

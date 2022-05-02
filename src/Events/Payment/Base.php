@@ -29,16 +29,17 @@ abstract class Base {
 		return new Payment($this->merchant_id,$this->model);
 	}
         
-        public function with($key,$value=null){
-            if (is_array($key)){
-                foreach ($key as $k => $v){
-                    $this->with($k,$v);
-                }
-                return $this;
-            }
-            if (property_exists($this, $key)){
-                $this->{$key}=$value;
+    public function with($key,$value=null) {
+        if (is_array($key)) {
+            foreach ($key as $k => $v){
+                $this->with($k,$v);
             }
             return $this;
         }
+        if (property_exists($this, $key)){
+            $this->{$key}=$value;
+        }
+        
+        return $this;
+    }
 }
