@@ -6,6 +6,7 @@ use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Mantonio84\pymMagicBox\Models\pmbStripeCustomer;
 use Stripe\PaymentIntent;
+use Illuminate\Http\Request;
 
 
 /**
@@ -99,33 +100,23 @@ class Stripe extends Base
         // Altrimenti controllo il paymentIntent per vedere se è andato tutto bene:
         
         // Dati del pagamento:
-        $amount = $paymentIntent->amount_received;
         $currency = strtoupper($paymentIntent->currency);
-        
+        $amount = $this->_displayAmountFromStripe($paymentIntent->amount_capturable, $currency);
+                
         // Controlla che il pagamento effettuato abbia valuta e importo corretti:
         if ($amount < $payment->amount || $currency != $payment->currency_code) {
-            return $this->throwAnError(__("Importo o valuta del pagamento non valida. Ottenuto: " . $amount . " " . $currency . ", atteso: " . $payment->amount . " " . $payment->currency_code));
+            return $this->throwAnError(__("onProcessPayment: Importo o valuta del pagamento non valida. Ottenuto: " . $amount . " " . $currency . ", atteso: " . $payment->amount . " " . $payment->currency_code));
         }
         
-        // Stato del pagamento:
-        $status = $paymentIntent->status;
-        $billed = true;
-        $confirmed = false;
+        // Cattura il payment intent:
+        $this->capture($paymentIntent);
         
-        if ($status == PaymentIntent::STATUS_PROCESSING) {
-            // niente da cambiare...
-        } else if ($status == PaymentIntent::STATUS_SUCCEEDED) {
-            $confirmed = true;
-        } else {
-            $billed = false;
-        }
-                
         return processPaymentResponse::make([
-            "billed" => $billed,
-            "confirmed" => $confirmed, 
-            "tracker" => $paymentIntent->id,
+            "billed"        => true,
+            "confirmed"     => false,
+            "tracker"       => $paymentIntent->id,
             "transaction_ref" => $paymentIntent->id,
-            "other_data" => []
+            "other_data"    => []
         ]);  
     }
     
@@ -153,11 +144,11 @@ class Stripe extends Base
         
         // Validazione della richiesta:
         $event = $this->_getWebhookEvent($signature, $payload, $errorMsg);
-        
+                
         // Se c'è un errore lo logga e termina:
         if (false === $event) {
             $this->log("ERROR", "Stripe webhook not valid!", $errorMsg, ['signature' => $signature, 'payload' => $payload ]);
-            return abort(400, $errorMsg);
+            return null;
         }
         
         // Log dell'evento:
@@ -165,7 +156,7 @@ class Stripe extends Base
         
         $managed = $this->_processEvent($event);
         if (false === $managed) {
-            return abort(400, "Unexpected event!");
+            return null;
         }
         
         return response("ok.");
@@ -212,7 +203,8 @@ class Stripe extends Base
             'description'            => $description,
             'amount'                 => $this->_formatAmount($amount, $currency),
             'currency'               => $this->_formatCurrency($currency),
-            'payment_method_types'   => $methodTypes
+            'payment_method_types'   => $methodTypes,
+            'capture_method'         => 'manual'
         ];
         
         // Id di un metodo di pagamento salvato:
@@ -266,6 +258,28 @@ class Stripe extends Base
     
     
     /**
+     * Cattura un paymentIntent.
+     * 
+     * @param \Stripe\PaymentIntent $paymentIntent
+     * 
+     * @return \Stripe\PaymentIntent|false
+     */
+    public function capture(\Stripe\PaymentIntent $paymentIntent)
+    {
+        $ret = false;
+        try {
+            $ret = $paymentIntent->capture();
+        } catch (\Exception $ex) {
+            $this->log("ERROR", "Stripe PYM Engine - Payment Intents capturing error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
+            
+            return false;
+        }
+        
+        return $ret;
+    }
+    
+    
+    /**
      * Controlla che la firma di un payload ricevuto da un webhook sia valida.
      *
      * @param string $signature Firma della richiesta.
@@ -278,7 +292,7 @@ class Stripe extends Base
     {
         try {
             $event = \Stripe\Webhook::constructEvent(
-                $payload, $signature, $this->_utils->getEndpointSecretKey()
+                $payload, $signature, $this->config['endpoint_secret_key']
             );
         } catch(\UnexpectedValueException $e) {
             $errorMsg = "Payload non valido.";
@@ -344,7 +358,7 @@ class Stripe extends Base
     {
         return $this->config['public_key'] ?? '';
     }
-    
+        
     
     /**
      * Crea un nuovo cliente.
@@ -542,20 +556,55 @@ class Stripe extends Base
     
     
     /**
+     * Chiama una funzione finchè non restituisce un risultato non nullo.
+     * 
+     * @param callable $callback
+     * @param float $waitMillis - Tempo di attesa tra una chiamata e l'altra in millisecondi. 
+     * @param float $maxTimeMillis - Numero massimo di millisecondi da aspettare.
+     * 
+     * @return mixed|null
+     */
+    protected function _callUntilNotNull(callable $callback, $waitMillis = 0, $maxTimeMillis = 10000) 
+    {
+        // Cerca il pagamento:
+        $timeStart = floor(microtime(true) * 1000);
+        while (true) {
+            $ris = $callback();
+            if (null !== $ris) {
+                return $ris;
+            }
+            
+            // Dopo 3 sec. esce lo stesso:
+            $time = floor(microtime(true) * 1000);
+            if ($time - $timeStart > $maxTimeMillis) {
+                break;
+            }
+            
+            // Aspetta il tempo indicato prima di ripetere la chiamata:
+            while(floor(microtime(true) * 1000) - $time < $waitMillis) { };
+        }
+        
+        return null;
+    }
+    
+    
+    /**
      * Pagamento effettuato con successo.
      * 
      * @param \Stripe\PaymentIntent $paymentIntent
      * 
      * @return boolean
      */
-    protected function _webhookPaymentIntentSucceeded(\Stripe\PaymentIntent $paymentIntent)
-    {
+    public function _webhookPaymentIntentSucceeded(\Stripe\PaymentIntent $paymentIntent)
+    {   
         // Cerca il pagamento:
-        $payment = pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent->id)->first();
-        
+        $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
+            return pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent->id)->first();            
+        }, 500, 3000);
+               
         // Se non lo trova lo segnala:
-        if (is_null($payment)) {
-            $this->log("NOTICE", "[WB] 'payment_intent.succeeded': suitable payment not found!", $paymentIntent);
+        if (null == $payment) {
+            $this->log("NOTICE", "[WB] 'payment_intent.succeeded': suitable payment not found!", $paymentIntent, ['performer' => $this->performer, 'paymentIntentId' => $paymentIntent->id]);
             return false;
         }
         
