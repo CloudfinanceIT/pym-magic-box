@@ -101,16 +101,13 @@ class Stripe extends Base
         
         // Dati del pagamento:
         $currency = strtoupper($paymentIntent->currency);
-        $amount = $this->_displayAmountFromStripe($paymentIntent->amount_capturable, $currency);
+        $amount = $this->_displayAmountFromStripe($paymentIntent->amount_received, $currency);
                 
         // Controlla che il pagamento effettuato abbia valuta e importo corretti:
         if ($amount < $payment->amount || $currency != $payment->currency_code) {
             return $this->throwAnError(__("onProcessPayment: Importo o valuta del pagamento non valida. Ottenuto: " . $amount . " " . $currency . ", atteso: " . $payment->amount . " " . $payment->currency_code));
         }
-        
-        // Cattura il payment intent:
-        $this->capture($paymentIntent);
-        
+                
         return processPaymentResponse::make([
             "billed"        => true,
             "confirmed"     => false,
@@ -199,12 +196,11 @@ class Stripe extends Base
         
         // Dati del pagamento:
         $paymentIntentData = [
-            'customer'               => $customerId,
-            'description'            => $description,
-            'amount'                 => $this->_formatAmount($amount, $currency),
-            'currency'               => $this->_formatCurrency($currency),
-            'payment_method_types'   => $methodTypes,
-            'capture_method'         => 'manual'
+            'customer'             => $customerId,
+            'description'          => $description,
+            'amount'               => $this->_formatAmount($amount, $currency),
+            'currency'             => $this->_formatCurrency($currency),
+            'payment_method_types' => $methodTypes
         ];
         
         // Id di un metodo di pagamento salvato:
@@ -228,7 +224,7 @@ class Stripe extends Base
             $paymentIntent = $this->_getClient()->paymentIntents->create($paymentIntentData, [
                 'idempotency_key' => $idempotencyKey
             ]);
-        } catch (\Exception $ex) {
+        } catch (\Exception $ex) {    
             $this->log("ERROR", "Stripe PYM Engine - Payment Intents creation error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
             return null;
         }
@@ -255,29 +251,7 @@ class Stripe extends Base
         
         return $paymentIntent;
     }
-    
-    
-    /**
-     * Cattura un paymentIntent.
-     * 
-     * @param \Stripe\PaymentIntent $paymentIntent
-     * 
-     * @return \Stripe\PaymentIntent|false
-     */
-    public function capture(\Stripe\PaymentIntent $paymentIntent)
-    {
-        $ret = false;
-        try {
-            $ret = $paymentIntent->capture();
-        } catch (\Exception $ex) {
-            $this->log("ERROR", "Stripe PYM Engine - Payment Intents capturing error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
-            
-            return false;
-        }
-        
-        return $ret;
-    }
-    
+       
     
     /**
      * Controlla che la firma di un payload ricevuto da un webhook sia valida.
@@ -600,7 +574,7 @@ class Stripe extends Base
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
             return pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent->id)->first();            
-        }, 500, 3000);
+        }, 1500, 30000);
                
         // Se non lo trova lo segnala:
         if (null == $payment) {
