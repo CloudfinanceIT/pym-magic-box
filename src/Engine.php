@@ -19,7 +19,8 @@ class Engine extends Base implements pmbLoggable {
 	public $supports_aliases=false;	
 	protected $signatures;
 	
-	public function __construct(string $merchant_id, AbstractEngine $managed){		
+	public function __construct(string $merchant_id, AbstractEngine $managed)
+	{		
 		$this->acceptMerchantId($merchant_id);
 		$this->managed=$managed;
                 $this->performer=$this->managed->performer;		
@@ -29,49 +30,56 @@ class Engine extends Base implements pmbLoggable {
               
         
 	
-	public function getPmbLogData(): array{
+	public function getPmbLogData(): array
+	{
 		return [
 			"performer_id" => $this->managed->performer->getKey(),
 			"method_name" => $this->managed->performer->method->name,
 		];
 	}
         
-        public function pay($amount, array $other_data=[], string $customer_id="", string $order_ref=""){ 		
-                $amount=$this->parseAmountAndCurrencyCode($amount);
-		pmbLogger::info($this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);		
-		return $this->wrapPayResponse($this->managed->pay($amount[0],$amount[1],null,$customer_id,$order_ref,$other_data));
+    public function pay($amount, array $other_data=[], string $customer_id="", string $order_ref="")
+    { 		
+        $amount=$this->parseAmountAndCurrencyCode($amount);
+    	pmbLogger::info($this->merchant_id,["amount" => $amount, "customer_id" => $customer_id, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request"]);
+    	
+    	return $this->wrapPayResponse($this->managed->pay($amount[0],$amount[1],null,$customer_id,$order_ref,$other_data));
 	}
 	
-	public function payWithAlias($amount, $alias_ref, array $other_data=[], string $order_ref=""){
-                $amount=$this->parseAmountAndCurrencyCode($amount);
-                if (is_scalar($alias_ref)){
-                    $alias=Alias::find($this->merchant_id,$alias_ref)->toBase();                   
-                }else if ($alias_ref instanceof pmbAlias){
-                    $alias=$alias_ref;
-                }else if ($alias_ref instanceof Alias){
-                    $alias=$alias_ref->toBase();
-                }
-                
-                if (is_null($alias)){
-                    $a=is_scalar($alias_ref) ? "Alias '".$alias_ref."'" : "Requested alias";
-                    throw aliasNotFoundException::make($a." not found on performer #".$this->performer->getKey()."!")->loggable("WARNING",$this->merchant_id,["pe" => $this->performer]);
-                }
-                    
-                if (!$alias->performer->is($this->performer)){                    
-                    throw aliasNotFoundException::make("Alias '".$alias->name."' not valid on performer #".$this->performer->getKey()."!")->loggable("WARNING",$this->merchant_id,["pe" => $this->performer, "al" => $alias]);
-                    $alias=null;
-                }
+	public function payWithAlias($amount, $alias_ref, array $other_data=[], string $order_ref="")
+	{
+        $amount=$this->parseAmountAndCurrencyCode($amount);
+        if (is_scalar($alias_ref)){
+            $alias=Alias::find($this->merchant_id,$alias_ref)->toBase();                   
+        }else if ($alias_ref instanceof pmbAlias){
+            $alias=$alias_ref;
+        }else if ($alias_ref instanceof Alias){
+            $alias=$alias_ref->toBase();
+        }
+        
+        if (is_null($alias)){
+            $a=is_scalar($alias_ref) ? "Alias '".$alias_ref."'" : "Requested alias";
+            throw aliasNotFoundException::make($a." not found on performer #".$this->performer->getKey()."!")->loggable("WARNING",$this->merchant_id,["pe" => $this->performer]);
+        }
+            
+        if (!$alias->performer->is($this->performer)){                    
+            throw aliasNotFoundException::make("Alias '".$alias->name."' not valid on performer #".$this->performer->getKey()."!")->loggable("WARNING",$this->merchant_id,["pe" => $this->performer, "al" => $alias]);
+            $alias=null;
+        }
             
 		pmbLogger::info($this->merchant_id,["amount" => $amount, "al" => $alias, "order_ref" => $order_ref, "pe" => $this->managed->performer, "message" => "Pay request with alias #".$alias->getKey()." ".$alias->name]);		
 		return $this->wrapPayResponse($this->managed->pay($amount[0],$amount[1],$alias,$alias->customer_id,$order_ref,$other_data));
 	}
 	
-	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null){
-		pmbLogger::debug($this->merchant_id,["message" => "createAnAlias request", "per" => $this->managed->performer]);				
-                return $this->wrapCreateAliasResponse($this->managed->aliasCreate($data, $name, $customer_id, $expires_at));
+	public function createAnAlias(array $data, string $name, string $customer_id="", $expires_at=null)
+	{
+		pmbLogger::debug($this->merchant_id,["message" => "createAnAlias request", "per" => $this->managed->performer]);
+		
+        return $this->wrapCreateAliasResponse($this->managed->aliasCreate($data, $name, $customer_id, $expires_at));
 	}
                 	
-	public function toBase(){
+	public function toBase()
+	{
 		return $this->managed;
 	}
 	
@@ -84,8 +92,9 @@ class Engine extends Base implements pmbLoggable {
 		return array_keys($this->signatures);
 	}
 	
-	public function run(string $method, $arguments=array()){		
-		if ($this->canRun($method)){
+	public function run(string $method, $arguments=array())
+	{		
+		if ($this->canRun($method)) {
 			$params=array();
 			foreach ($this->signatures[$method] as $rp){
 				$params[]=$this->extractArgument($arguments, $rp, $method);
@@ -105,51 +114,54 @@ class Engine extends Base implements pmbLoggable {
 		}
 	}
 	
-	public function canRun(string $method){
+	public function canRun(string $method)
+	{
 		$this->discover();
 		return array_key_exists($method,$this->signatures);
 	}
 	
-        protected function parseAmountAndCurrencyCode($w){
-            $ret=null;
-            $defaultCurrencyCode=config("pymMagicBox.default_currency_code","EUR");
-            if (!Currency::exists($defaultCurrencyCode)){
-                throw invalidCurrencyCodeException::make("Invalid default currency code '$defaultCurrencyCode'!")->loggable("EMERGENCY",$this->merchant_id,["pe" => $this->performer]);
-                return null;
-            }
-            if (is_float($w) || is_int($w) || ctype_digit($w)){
-                $ret=array(floatval($w), $defaultCurrencyCode);
-            }else if (is_string($w)){
-                $ret=explode(" ",$w,2);
-            }else if (is_array($w)){
-                $ret=$w;
-            }
-            $ret[1]=strtoupper($ret[1]);
-            if (!is_array($ret)){
-                throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
-                return null;
-            }
-            if (count($ret)!=2){
-                throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
-                return null;
-            }
-            if (!is_float($ret[0]) && !is_int($ret[0]) && !ctype_digit($ret[0])){
-                throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
-                return null;
-            }
-            if ($ret[0]<=0){
-                throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
-                return null;
-            }
-            if (!Currency::exists($ret[1])){
-                throw invalidCurrencyCodeException::make("Invalid currency code given '".$ret[1]."'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
-                return null;
-            }
-            $ret[0]=floatval($ret[0]);
-            return $ret;
+    protected function parseAmountAndCurrencyCode($w){
+        $ret=null;
+        $defaultCurrencyCode=config("pymMagicBox.default_currency_code","EUR");
+        if (!Currency::exists($defaultCurrencyCode)){
+            throw invalidCurrencyCodeException::make("Invalid default currency code '$defaultCurrencyCode'!")->loggable("EMERGENCY",$this->merchant_id,["pe" => $this->performer]);
+            return null;
         }
+        if (is_float($w) || is_int($w) || ctype_digit($w)){
+            $ret=array(floatval($w), $defaultCurrencyCode);
+        }else if (is_string($w)){
+            $ret=explode(" ",$w,2);
+        }else if (is_array($w)){
+            $ret=$w;
+        }
+        $ret[1]=strtoupper($ret[1]);
+        if (!is_array($ret)){
+            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+            return null;
+        }
+        if (count($ret)!=2){
+            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+            return null;
+        }
+        if (!is_float($ret[0]) && !is_int($ret[0]) && !ctype_digit($ret[0])){
+            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+            return null;
+        }
+        if ($ret[0]<=0){
+            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+            return null;
+        }
+        if (!Currency::exists($ret[1])){
+            throw invalidCurrencyCodeException::make("Invalid currency code given '".$ret[1]."'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+            return null;
+        }
+        $ret[0]=floatval($ret[0]);
+        
+        return $ret;
+    }
 	
-	protected function extractArgument(array &$arguments, $rp, $method){
+	protected function extractArgument(array &$arguments, $rp, $method)
+	{
 		$n=$rp->getName();
 		if (empty($arguments)){
 			if ($rp->isOptional()){
@@ -179,7 +191,8 @@ class Engine extends Base implements pmbLoggable {
 	}
 		
 	
-	protected function discover(){
+	protected function discover()
+	{
 		if (is_null($this->signatures)){
 			$this->signatures=array();
 			$reflector=new \ReflectionClass($this->managed);
@@ -196,29 +209,30 @@ class Engine extends Base implements pmbLoggable {
 	}
        
 	
-         protected function wrapPayResponse($ret){
-            if (is_array($ret) && count($ret)==2){
-                return Payment::make($this->merchant_id, $ret[0])->setUserInteraction($ret[1]);                
-            }
-            return $ret;
+     protected function wrapPayResponse($ret)
+     {
+        if (is_array($ret) && count($ret)==2){
+            return Payment::make($this->merchant_id, $ret[0])->setUserInteraction($ret[1]);                
+        }
+        return $ret;
 	}
         
-        protected function wrapCreateAliasResponse($ret){
-            if (is_array($ret) && count($ret)==2){
-                return Alias::make($this->merchant_id, $ret[0])->setUserInteraction($ret[1]);                
-            }
-            return $ret;
+    protected function wrapCreateAliasResponse($ret)
+    {
+        if (is_array($ret) && count($ret)==2){
+            return Alias::make($this->merchant_id, $ret[0])->setUserInteraction($ret[1]);                
+        }
+        return $ret;
 	}
 
         
-        protected static function array_is_associative(array $arr) {
+    protected static function array_is_associative(array $arr) 
+    {
 		$k = array_keys($arr);
 		$fk = reset($k);
 		if (!ctype_digit($fk) && !is_int($fk))
 			return true;
 		$fk = intval($fk);                
 		return (range($fk, count($arr) - 1) != $k);
-	}
-        
-        
+	}   
 }

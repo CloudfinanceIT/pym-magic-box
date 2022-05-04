@@ -103,8 +103,7 @@ abstract class Base
         }else{
             $a->adata=$ret;
             $a->confirmed=true;
-        }		                
-
+        }		  
         $a->save();		
         
         event(new \Mantonio84\pymMagicBox\Events\Alias\Created($this->merchant_id, $a));

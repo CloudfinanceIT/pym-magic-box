@@ -5,8 +5,9 @@ use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
 use \Mantonio84\pymMagicBox\Models\pmbStripeCustomer;
-use Stripe\PaymentIntent;
+use Illuminate\Support\Arr;
 use Illuminate\Http\Request;
+use Stripe\PaymentIntent;
 
 
 /**
@@ -36,7 +37,11 @@ class Stripe extends Base
 
     protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = []): bool
     {
-        return true;
+        // Recupera il payment intent:
+        $paymentIntent = $this->getPaymentIntent($payment->tracker);
+        
+        // Il pagamento è confermato solo se il paymentIntent ha stato SUCCEEDED:
+        return ($paymentIntent && $paymentIntent->status == PaymentIntent::STATUS_SUCCEEDED);
     }
 
     protected function onProcessAliasDelete(pmbAlias $alias): bool
@@ -51,7 +56,22 @@ class Stripe extends Base
 
     protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null)
     {
-        // TODO...
+        // Id del payment intent:
+        $paymentIntentId = Arr::get($data, "payment_intent");
+        
+        // Recupera il payment intent:
+        $paymentIntent = $this->getPaymentIntent($paymentIntentId);
+        if (empty($paymentIntent)) {
+            return false;
+        }
+        
+        // Tipo di uso:
+        $usage = $paymentIntent->setup_future_usage;
+        if (empty($usage)) {
+            return false;
+        }
+        
+        return [ 'payment_method' => $paymentIntent->payment_method, 'payment_method_options' => $paymentIntent->payment_method_options->toArray() ];
     }
 
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = []): bool
@@ -80,32 +100,50 @@ class Stripe extends Base
 
     protected function onProcessPayment(pmbPayment $payment, $alias_data, array $data = [], string $customer_id): processPaymentResponse
     {
+        // Pagamento con metodo salvato:
         if (!empty($alias_data)) {
-            // TODO...
-            // Pagamento con metodo salvato...
-        }
-        
-        // Dati di risposta:
-        $paymentIntentId = $data['payment_intent'];
-        $paymentIntentClientSecret = $data['payment_intent_client_secret'];
-        
-        // Payment intent:
-        $paymentIntent = $this->getPaymentIntent($paymentIntentId);
-        
-        // Payment intent non valido:
-        if ($paymentIntent == null || $paymentIntent['client_secret'] != $paymentIntentClientSecret) {
-            return $this->throwAnError(__("Token di pagamento non valido."));
-        }
-        
-        // Altrimenti controllo il paymentIntent per vedere se è andato tutto bene:
-        
-        // Dati del pagamento:
-        $currency = strtoupper($paymentIntent->currency);
-        $amount = $this->_displayAmountFromStripe($paymentIntent->amount_received, $currency);
-                
-        // Controlla che il pagamento effettuato abbia valuta e importo corretti:
-        if ($amount < $payment->amount || $currency != $payment->currency_code) {
-            return $this->throwAnError(__("onProcessPayment: Importo o valuta del pagamento non valida. Ottenuto: " . $amount . " " . $currency . ", atteso: " . $payment->amount . " " . $payment->currency_code));
+            // Id del metodo di pagamento:
+            $paymentMethodId = $alias_data->adata['payment_method'] ?? null;
+            if (empty($paymentMethodId)) {
+                return $this->throwAnError("Invalid payment method id for alias!");
+            }
+            
+            // Dettagli del metodo di pagamento:
+            $paymentMethod = $this->getPaymentMethod($paymentMethodId);
+            if (empty($paymentMethod) || empty($paymentMethod->customer)) {
+                return $this->throwAnError("Invalid payment method for alias!");
+            }
+            
+            // dd($payment, $alias_data, $data);
+            
+            // Crea il paymentIntent su Stripe con i dati del cliente:
+            $paymentIntent = $this->createPaymentIntent($paymentMethod->customer, $payment->amount, $payment->currency_code, $paymentMethod->type ?? null, null, null, null, $paymentMethodId, true);
+            
+            // TODO: aggiungere descrizione e chiave di idempotenza al pyament intent...
+            // TODO: il campo order_ref di $payment è lo uuid del pagamento su home...
+        } else {        
+            // Dati di risposta:
+            $paymentIntentId = $data['payment_intent'];
+            $paymentIntentClientSecret = $data['payment_intent_client_secret'];
+            
+            // Payment intent:
+            $paymentIntent = $this->getPaymentIntent($paymentIntentId);
+            
+            // Payment intent non valido:
+            if ($paymentIntent == null || $paymentIntent['client_secret'] != $paymentIntentClientSecret) {
+                return $this->throwAnError(__("Token di pagamento non valido."));
+            }
+            
+            // Altrimenti controllo il paymentIntent per vedere se è andato tutto bene:
+            
+            // Dati del pagamento:
+            $currency = strtoupper($paymentIntent->currency);
+            $amount = $this->_displayAmountFromStripe($paymentIntent->amount_received, $currency);
+                    
+            // Controlla che il pagamento effettuato abbia valuta e importo corretti:
+            if ($amount < $payment->amount || $currency != $payment->currency_code) {
+                return $this->throwAnError(__("onProcessPayment: Importo o valuta del pagamento non valida. Ottenuto: " . $amount . " " . $currency . ", atteso: " . $payment->amount . " " . $payment->currency_code));
+            }
         }
                 
         return processPaymentResponse::make([
@@ -252,6 +290,26 @@ class Stripe extends Base
         return $paymentIntent;
     }
        
+    
+    /**
+     * Prende un payment_method da Stripe.
+     *
+     * @param string $paymentMethodId
+     *
+     * @return \Stripe\PaymentMethod|null
+     */
+    public function getPaymentMethod($paymentMethodId)
+    {
+        try {
+            $paymentMethod = $this->_getClient()->paymentMethods->retrieve($paymentMethodId);
+        } catch (\Exception $ex) {
+            $this->log("ERROR", "Stripe PYM Engine - Payment Methods retrieving error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
+            return null;
+        }
+        
+        return $paymentMethod;
+    }
+    
     
     /**
      * Controlla che la firma di un payload ricevuto da un webhook sia valida.
