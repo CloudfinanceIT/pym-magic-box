@@ -1,6 +1,7 @@
 <?php
 namespace Mantonio84\pymMagicBox\Engines;
 
+use \Mantonio84\pymMagicBox\Classes\aliasCreateResponse;
 use \Mantonio84\pymMagicBox\Classes\processPaymentResponse;
 use \Mantonio84\pymMagicBox\Models\pmbPayment;
 use \Mantonio84\pymMagicBox\Models\pmbAlias;
@@ -8,6 +9,7 @@ use \Mantonio84\pymMagicBox\Models\pmbStripeCustomer;
 use Illuminate\Support\Arr;
 use Illuminate\Http\Request;
 use Stripe\PaymentIntent;
+use Carbon\Carbon;
 
 
 /**
@@ -38,15 +40,18 @@ class Stripe extends Base
     protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = []): bool
     {
         // Recupera il payment intent:
-        $paymentIntent = $this->getPaymentIntent($payment->tracker);
+        $paymentIntent = $this->getPaymentIntent($payment->transaction_ref);
         
         // Il pagamento è confermato solo se il paymentIntent ha stato SUCCEEDED:
         return ($paymentIntent && $paymentIntent->status == PaymentIntent::STATUS_SUCCEEDED);
     }
 
     protected function onProcessAliasDelete(pmbAlias $alias): bool
-    {
-        // TODO...
+    {        
+        // Id del metodo di pagamento:
+        $paymentMethodId = $alias->tracker ?? null;
+        
+        return $this->detachPaymentMethod($paymentMethodId);
     }
 
     protected function onProcessAliasConfirm(pmbAlias $alias, array $data = []): bool
@@ -62,21 +67,54 @@ class Stripe extends Base
         // Recupera il payment intent:
         $paymentIntent = $this->getPaymentIntent($paymentIntentId);
         if (empty($paymentIntent)) {
-            return false;
+            return $this->throwAnError("Invalid payment intent for alias create!");
         }
         
         // Tipo di uso:
         $usage = $paymentIntent->setup_future_usage;
         if (empty($usage)) {
-            return false;
+            return $this->throwAnError("Invalid usage for alias create!");
         }
         
-        return [ 'payment_method' => $paymentIntent->payment_method, 'payment_method_options' => $paymentIntent->payment_method_options->toArray() ];
+        // Dettagli del metodo di pagamento:
+        $paymentMethod = $this->getPaymentMethod($paymentIntent->payment_method);
+        if (empty($paymentMethod)) {
+            return $this->throwAnError("Invalid payment method for alias create!");
+        }        
+        $paymentMethodType = $paymentMethod->type;
+        $paymentMethodDetails = $paymentMethod->{$paymentMethodType}->toArray();
+        
+        // Dati aggiuntivi: 
+        $paymentMethodDetails['customer'] = $paymentIntent->customer;
+        
+        // Scadenza:
+        $expires_at = null;
+        switch ($paymentMethodType) {
+            case 'card':
+                $expires_at = Carbon::create($paymentMethodDetails['exp_year'], $paymentMethodDetails['exp_month'], 1, 12, 0, 0)->endOfMonth();
+                break;
+        }
+                
+        return aliasCreateResponse::make([
+            "tracker"    => $paymentIntent->payment_method,
+            "adata"      => $paymentMethodDetails,
+            "expires_at" => $expires_at,
+            "confirmed"  => true
+        ]);
+        
+        return [ 'payment_method' => $paymentIntent->payment_method, 'payment_method_options' => $options ];
     }
 
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = []): bool
-    {
-        // TODO...
+    {        
+        // Emette un rimborso su Stripe:
+        $refund = $this->createRefund($payment->transaction_ref, $payment->amount, $payment->currency_code);
+        if (null != $refund) {
+            $this->registerARefund($payment, $amount, $refund->id, $refund);
+            return true;
+        }
+        
+        return false;        
     }
 
     protected function validateConfig(array $config)
@@ -103,7 +141,7 @@ class Stripe extends Base
         // Pagamento con metodo salvato:
         if (!empty($alias_data)) {
             // Id del metodo di pagamento:
-            $paymentMethodId = $alias_data->adata['payment_method'] ?? null;
+            $paymentMethodId = $alias_data->tracker ?? null;
             if (empty($paymentMethodId)) {
                 return $this->throwAnError("Invalid payment method id for alias!");
             }
@@ -193,14 +231,14 @@ class Stripe extends Base
                 
         // Se c'è un errore lo logga e termina:
         if (false === $event) {
-            $this->log("ERROR", "Stripe webhook not valid!", $errorMsg, ['signature' => $signature, 'payload' => $payload ]);
+            $this->log("ERROR", "[WB] Stripe webhook not valid!", $errorMsg, ['signature' => $signature, 'payload' => $payload ]);
             return null;
         }
         
         // Log dell'evento:
-        $this->log("INFO", "Stripe webhook event", [  'object' => $event->object, 'id' => $event->id, 'type' => $event->type, 'account' => $event->account, 'api_version' => $event->api_version, 'created' => $event->created, 'data' => $event->data->toArray() ]);
+        $this->log("INFO", "[WB] Stripe webhook event", [  'object' => $event->object, 'id' => $event->id, 'type' => $event->type, 'account' => $event->account, 'api_version' => $event->api_version, 'created' => $event->created, 'data' => $event->data->toArray() ]);
         
-        $managed = $this->_processEvent($event);
+        $managed = $this->_processWebhookEvent($event);
         if (false === $managed) {
             return null;
         }
@@ -297,6 +335,44 @@ class Stripe extends Base
         
         return $paymentIntent;
     }
+    
+    
+    /**
+     * Crea un intenzione di pagamento.
+     *
+     * @param string $customerId
+     * @param string|array $methodTypes
+     * @param string $usage Valori ammessi: 'on_session', 'off_session'
+     *
+     * @return \Stripe\SetupIntent|null
+     */
+    public function createSetupIntent($customerId, $methodTypes = [], $usage = 'off_session')
+    {
+        // Metodo di pagamento:
+        if (!is_array($methodTypes)) {
+            $methodTypes = [ $methodTypes ];
+        }
+        
+        $setupIntentData = [
+            'customer'             => $customerId,
+            'payment_method_types' => $methodTypes
+        ];
+        
+        // Salvataggio del metodo per usi futuri:
+        if (!empty($usage)) {
+            $paymentIntentData['usage'] = $usage;
+        }
+        
+        // Crea il setup intent:
+        try {
+            $setupIntent = $this->_getClient()->setupIntents->create($setupIntentData);
+        } catch (\Exception $ex) {
+            $this->log("ERROR", "Stripe PYM Engine - Setup Intents creation error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
+            return null;
+        }
+        
+        return $setupIntent;
+    }
        
     
     /**
@@ -316,6 +392,54 @@ class Stripe extends Base
         }
         
         return $paymentMethod;
+    }
+    
+    
+    /**
+     * Scollega un metodo di pagamento da un utente.
+     * 
+     * @param unknown $paymentMethodId
+     * 
+     * @return bool
+     */
+    public function detachPaymentMethod($paymentMethodId)
+    {
+        try {
+            $paymentMethod = $this->_getClient()->paymentMethods->detach($paymentMethodId);
+        } catch (\Exception $ex) {
+            $this->log("ERROR", "Stripe PYM Engine - Payment Methods detaching error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
+            return false;
+        }
+        
+        return true;
+    }
+    
+    
+    /**
+     * Emette un rimborso.
+     * 
+     * @param string $paymentIntentId
+     * @param float $amount
+     * @param string|null $currency
+     * 
+     * @return \Stripe\Refund|null
+     */
+    public function createRefund($paymentIntentId, $amount, $currency = 'EUR')
+    {
+        // TODO: occorrerebbe controllare che la currency passata sia la stessa
+        // di quella usata per il pagamento...
+        
+        try {
+            $refund = $this->_getClient()->refunds->create([
+                'payment_intent' => $paymentIntentId, 
+                'amount'         => $this->_formatAmount($amount, $currency)
+            ]);
+        } catch (\Exception $ex) {            
+            $this->log("ERROR", "Stripe PYM Engine - Refund creating error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
+            return null;
+        }
+        
+        return $refund;
     }
     
     
@@ -362,24 +486,23 @@ class Stripe extends Base
         $pmbStripeCustomer = pmbStripeCustomer::ofPerformers($this->performer)->pmbCustomer($pmbCustomerId)->first();
         if (!empty($pmbStripeCustomer)) {
             // E nel caso ne prende i dati:
-            $customer = $this->_getCustomer($pmbStripeCustomer->stripe_customer_id);
+            $customer = $this->getCustomer($pmbStripeCustomer->stripe_customer_id);
             
             // Se il cliente è stato cancellato da Stripe, lo cancella anche sulla piattaforma:
+            // (ATTENZIONE: perchè questo caso dovrebbe già essere satto gestito dai webhook...)
             if (!empty($customer) && $customer->isDeleted()) {
-                $pmbStripeCustomer->delete();
-                $pmbStripeCustomer = null;
+                $this->_webhookCustomerDeleted($customer);
                 $customer = null;
-                
-                // TODO: si potrebbe fare una soft delete del pmb_stripe_customer...
+                $pmbStripeCustomer = null;
             }
         }
         
         // Se il cliente non è stato mai creato oppure è stato cancellato su Stripe, lo crea:
         if (empty($customer)) {
-            $customer = $this->_createCustomer($customerData);
+            $customer = $this->createCustomer($customerData);
         } else {
             // Altrimenti lo aggiorna:
-            $customer = $this->_updateCustomer($customer['id'], $customerData);
+            $customer = $this->updateCustomer($customer->id, $customerData);
         }
 
         // Salva i dati sull'account Stripe del cliente (sempre che sia stato possibile crearlo):
@@ -387,11 +510,11 @@ class Stripe extends Base
             $data = [
                 'performer_id'       => $this->performer->id,
                 'pmb_customer_id'    => $pmbCustomerId,
-                'stripe_customer_id' => $customer['id']
+                'stripe_customer_id' => $customer->id
             ];
             pmbStripeCustomer::create($data);
             
-            $this->log("INFO", "Created Stripe Customer for '" . $pmbCustomerId . "': '" . $customer['id'] . "'", "", ["cu" => $pmbStripeCustomer]);
+            $this->log("INFO", "Created Stripe Customer for '" . $pmbCustomerId . "': '" . $customer->id . "'", "", ["cu" => $pmbStripeCustomer]);
         }
 
         return $customer;
@@ -416,7 +539,7 @@ class Stripe extends Base
      *
      * @return \Stripe\Customer|null
      */
-    protected function _createCustomer($customerData)
+    public function createCustomer($customerData)
     {
         try {
             $customer = $this->_getClient()->customers->create($customerData);
@@ -436,7 +559,7 @@ class Stripe extends Base
      *
      * @return \Stripe\Customer|null
      */
-    protected function _getCustomer($customerId)
+    public function getCustomer($customerId)
     {
         try {
             $customer = $this->_getClient()->customers->retrieve($customerId);
@@ -457,7 +580,7 @@ class Stripe extends Base
      *
      * @return \Stripe\Customer|null
      */
-    protected function _updateCustomer($customerId, $newCustomerData)
+    public function updateCustomer($customerId, $newCustomerData)
     {
         try {
             $customer = $this->_getClient()->customers->update($customerId, $newCustomerData);
@@ -555,13 +678,14 @@ class Stripe extends Base
      *
      * @return true se l'evento è stato gestito, false altrimenti.
      */
-    protected function _processEvent(\Stripe\Event $event)
+    protected function _processWebhookEvent(\Stripe\Event $event)
     {
         switch ($event->type) {
             case \Stripe\Event::PAYMENT_INTENT_SUCCEEDED:
                 /**
                  * "payment_intent.succeeded": pagamento riuscito.
                  */
+                
                 /**
                  * @var \Stripe\PaymentIntent $paymentIntent
                  */
@@ -593,6 +717,15 @@ class Stripe extends Base
                 
             case \Stripe\Event::MANDATE_UPDATED:
                 // TODO...
+                break;
+                
+            case \Stripe\Event::CUSTOMER_DELETED:
+                /**
+                 * @var \Stripe\Customer $customer
+                 */
+                $customer = $event->data->object;
+                
+                $this->_webhookCustomerDeleted($customer);
                 break;
                     
             default:
@@ -644,11 +777,11 @@ class Stripe extends Base
      * 
      * @return boolean
      */
-    public function _webhookPaymentIntentSucceeded(\Stripe\PaymentIntent $paymentIntent)
+    protected function _webhookPaymentIntentSucceeded(\Stripe\PaymentIntent $paymentIntent)
     {   
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
-            return pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent->id)->first();            
+            return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();            
         }, 1500, 30000);
                
         // Se non lo trova lo segnala:
@@ -673,5 +806,39 @@ class Stripe extends Base
         }
         
         return false;
+    }
+    
+    
+    /**
+     * Un utente è stato cancellato da Stripe.
+     * 
+     * @param \Stripe\Customer $customer
+     * 
+     * @return boolean
+     */
+    protected function _webhookCustomerDeleted(\Stripe\Customer $customer)
+    {
+        // Cerca eventuali utenti salvati:
+        $pmbStripeCustomer = pmbStripeCustomer::stripeCustomer($customer->id)->first();
+        if (empty($pmbStripeCustomer)) {
+            return false;
+        }
+        
+        // Id:
+        $pmbCustomerId = $pmbStripeCustomer->pmb_customer_id;
+        
+        // Cancella l'utente Stripe dalla PYM:
+        $pmbStripeCustomer->delete();
+        
+        // Cancella i metodi di pagamento salvati associati a quell'utente Stripe:
+        PmbAlias::where('customer_id', $pmbCustomerId)
+            ->get()
+            ->each(function($pmbAlias) use ($customer) {
+                $options = $pmbAlias->adata ?? [];
+               
+                if (is_array($options) && isset($options['customer']) && $options['customer'] == $customer->id) {
+                    $this->aliasDelete($pmbAlias);
+                }
+            });
     }
 }

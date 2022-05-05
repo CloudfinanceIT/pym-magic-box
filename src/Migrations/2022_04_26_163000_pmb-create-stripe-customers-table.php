@@ -21,9 +21,9 @@ class PmbCreateStripeCustomersTable extends Migration
             
             $table->string('pmb_customer_id', 255)->index();
             $table->string('stripe_customer_id', 255)->index();
-            $table->unique(['pmb_customer_id', 'stripe_customer_id']);
                         
             $table->timestamps();
+            $table->softDeletes();
         });
     }
     

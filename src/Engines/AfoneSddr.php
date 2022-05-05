@@ -85,7 +85,8 @@ class AfoneSddr extends Base {
             $adata['mandate']=[class_basename($mandate), $mandate->getKey()];
             return aliasCreateResponse::make([                
                 "tracker" => "DID:".$did,
-                "adata" => $adata
+                "adata" => $adata,
+                "expires_at" => $expires_at
             ])->needsUserInteraction(response()->redirectTo($process['actionUrl']));
         }
     }

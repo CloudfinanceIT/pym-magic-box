@@ -1,6 +1,7 @@
 <?php
 namespace Mantonio84\pymMagicBox\Models;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Associazione tra gli utenti della PYM e i clienti Stripe.
@@ -9,6 +10,8 @@ namespace Mantonio84\pymMagicBox\Models;
  */
 class pmbStripeCustomer extends pmbBaseWithPerformer  
 {		
+    use SoftDeletes;
+    
     protected $guarded = [ 'id' ];
     
     public function scopePmbCustomer($query, $value)

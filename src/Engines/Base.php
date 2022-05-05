@@ -118,19 +118,20 @@ abstract class Base
 	
 	public function aliasDelete(pmbAlias $alias)
 	{
-		if (!$this->supportsAliases()){
-                    throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
-                    return false;
+		if (!$this->supportsAliases()) {
+            throw paymentMethodInvalidOperationException::make("Method '".$this->performer->method->name."' does not support aliases!")->loggable("ALERT", $this->merchant_id, ["pe" => $this->performer]);
+            return false;
 		}
-		$ret=$this->sandbox("onProcessAliasDelete",[$alias]);
-		if ($ret){
+		$ret = $this->sandbox("onProcessAliasDelete",[$alias]);
+		if ($ret) {
 			pmbLogger::info($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias deleted successfully!", "al" => $alias]);
 			$alias->delete();
-                        event(new \Mantonio84\pymMagicBox\Events\Alias\Deleted($this->merchant_id, $alias));
-		}else{
+            event(new \Mantonio84\pymMagicBox\Events\Alias\Deleted($this->merchant_id, $alias));
+		} else {
 			pmbLogger::warning($this->performer->merchant_id,["pe" => $this->performer, "message" => "Alias delete error!", "al" => $alias]);
-                        event(new \Mantonio84\pymMagicBox\Events\Alias\Error($this->merchant_id, $alias, "delete"));
+            event(new \Mantonio84\pymMagicBox\Events\Alias\Error($this->merchant_id, $alias, "delete"));
 		}
+		
 		return $ret;
 	}
 	
