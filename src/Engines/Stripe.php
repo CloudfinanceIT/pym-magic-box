@@ -58,7 +58,7 @@ class Stripe extends Base
     {
         // Id del payment intent:
         $paymentIntentId = Arr::get($data, "payment_intent");
-        
+                
         // Recupera il payment intent:
         $paymentIntent = $this->getPaymentIntent($paymentIntentId);
         if (empty($paymentIntent)) {
@@ -114,13 +114,11 @@ class Stripe extends Base
                 return $this->throwAnError("Invalid payment method for alias!");
             }
             
-            // dd($payment, $alias_data, $data);
+            // Descrizione del pagamento:
+            $description = $data['payment_description'] ?? null;
             
             // Crea il paymentIntent su Stripe con i dati del cliente:
-            $paymentIntent = $this->createPaymentIntent($paymentMethod->customer, $payment->amount, $payment->currency_code, $paymentMethod->type ?? null, null, null, null, $paymentMethodId, true);
-            
-            // TODO: aggiungere descrizione e chiave di idempotenza al pyament intent...
-            // TODO: il campo order_ref di $payment è lo uuid del pagamento su home...
+            $paymentIntent = $this->createPaymentIntent($paymentMethod->customer, $payment->amount, $payment->currency_code, $paymentMethod->type ?? null, $description, null, $paymentMethodId, true);
         } else {        
             // Dati di risposta:
             $paymentIntentId = $data['payment_intent'];
@@ -138,17 +136,30 @@ class Stripe extends Base
             
             // Dati del pagamento:
             $currency = strtoupper($paymentIntent->currency);
-            $amount = $this->_displayAmountFromStripe($paymentIntent->amount_received, $currency);
+            $amount = $this->_displayAmountFromStripe($paymentIntent->amount, $currency);
                     
             // Controlla che il pagamento effettuato abbia valuta e importo corretti:
             if ($amount < $payment->amount || $currency != $payment->currency_code) {
                 return $this->throwAnError(__("onProcessPayment: Importo o valuta del pagamento non valida. Ottenuto: " . $amount . " " . $currency . ", atteso: " . $payment->amount . " " . $payment->currency_code));
             }
         }
-                
+        
+        // Dettagli del pagamento:
+        $billed = false;
+        $confirmed = false;
+        
+        if ($paymentIntent) {
+            if ($paymentIntent->status == PaymentIntent::STATUS_PROCESSING) {
+                $billed = true;                
+            } elseif ($paymentIntent->status == PaymentIntent::STATUS_SUCCEEDED) {
+                $billed = true;  
+                $confirmed = true;
+            }
+        }
+        
         return processPaymentResponse::make([
-            "billed"        => true,
-            "confirmed"     => false,
+            "billed"        => $billed,
+            "confirmed"     => $confirmed,
             "tracker"       => $paymentIntent->id,
             "transaction_ref" => $paymentIntent->id,
             "other_data"    => []
@@ -218,14 +229,13 @@ class Stripe extends Base
      * @param string $currency
      * @param string|array $methodTypes
      * @param string|null $description
-     * @param string|null $idempotencyKey       Chiave di idempotenza per evitare pagamenti duplicati
      * @param string|null $setupFutureUsage
      * @param string|null $methodId
      * @param bool $confirm                     Se true, crea e conferma direttamente il pagamento (solo se $methodId != null)
      * 
      * @return \Stripe\PaymentIntent|null
      */
-    public function createPaymentIntent($customerId, $amount, $currency = 'EUR', $methodTypes = [], $description = null, $idempotencyKey = null, $setupFutureUsage = null, $methodId = null, $confirm = false)
+    public function createPaymentIntent($customerId, $amount, $currency = 'EUR', $methodTypes = [], $description = null, $setupFutureUsage = null, $methodId = null, $confirm = false)
     {
         // Metodo di pagamento:
         if (!is_array($methodTypes)) {
@@ -259,9 +269,7 @@ class Stripe extends Base
        
         // Crea il payment intent:
         try {
-            $paymentIntent = $this->_getClient()->paymentIntents->create($paymentIntentData, [
-                'idempotency_key' => $idempotencyKey
-            ]);
+            $paymentIntent = $this->_getClient()->paymentIntents->create($paymentIntentData);
         } catch (\Exception $ex) {    
             $this->log("ERROR", "Stripe PYM Engine - Payment Intents creation error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
             return null;
@@ -355,6 +363,15 @@ class Stripe extends Base
         if (!empty($pmbStripeCustomer)) {
             // E nel caso ne prende i dati:
             $customer = $this->_getCustomer($pmbStripeCustomer->stripe_customer_id);
+            
+            // Se il cliente è stato cancellato da Stripe, lo cancella anche sulla piattaforma:
+            if (!empty($customer) && $customer->isDeleted()) {
+                $pmbStripeCustomer->delete();
+                $pmbStripeCustomer = null;
+                $customer = null;
+                
+                // TODO: si potrebbe fare una soft delete del pmb_stripe_customer...
+            }
         }
         
         // Se il cliente non è stato mai creato oppure è stato cancellato su Stripe, lo crea:
