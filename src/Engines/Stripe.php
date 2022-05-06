@@ -61,23 +61,41 @@ class Stripe extends Base
 
     protected function onProcessAliasCreate(array $data, string $name, string $customer_id = "", $expires_at = null)
     {
-        // Id del payment intent:
+        // Cerca un paymentIntet oppure un setup intent:
         $paymentIntentId = Arr::get($data, "payment_intent");
-                
-        // Recupera il payment intent:
-        $paymentIntent = $this->getPaymentIntent($paymentIntentId);
-        if (empty($paymentIntent)) {
-            return $this->throwAnError("Invalid payment intent for alias create!");
+        $setupIntentId = Arr::get($data, "setup_intent");
+        
+        if (!empty($setupIntentId)) {
+            // Recupera il setup intent:
+            $setupIntent = $this->getSetupIntent($setupIntentId);
+            if (empty($setupIntent)) {
+                return $this->throwAnError("Invalid setup intent for alias create!");
+            }
+            
+            $usage = $setupIntent->usage;
+            $customerId = $setupIntent->customer;
+            $paymentMethodId = $setupIntent->payment_method;
+        } else if (!empty($paymentIntentId)) {
+            // Recupera il payment intent:
+            $paymentIntent = $this->getPaymentIntent($paymentIntentId);
+            if (empty($paymentIntent)) {
+                return $this->throwAnError("Invalid payment intent for alias create!");
+            }
+            
+            $usage = $paymentIntent->setup_future_usage;
+            $customerId = $paymentIntent->customer;
+            $paymentMethodId = $paymentIntent->payment_method;
+        } else {
+            return $this->throwAnError("Payment intent or setup intent not found for alias create!");
         }
         
         // Tipo di uso:
-        $usage = $paymentIntent->setup_future_usage;
         if (empty($usage)) {
             return $this->throwAnError("Invalid usage for alias create!");
         }
-        
+                
         // Dettagli del metodo di pagamento:
-        $paymentMethod = $this->getPaymentMethod($paymentIntent->payment_method);
+        $paymentMethod = $this->getPaymentMethod($paymentMethodId);
         if (empty($paymentMethod)) {
             return $this->throwAnError("Invalid payment method for alias create!");
         }        
@@ -85,7 +103,7 @@ class Stripe extends Base
         $paymentMethodDetails = $paymentMethod->{$paymentMethodType}->toArray();
         
         // Dati aggiuntivi: 
-        $paymentMethodDetails['customer'] = $paymentIntent->customer;
+        $paymentMethodDetails['customer'] = $customerId;
         
         // Scadenza:
         $expires_at = null;
@@ -96,13 +114,13 @@ class Stripe extends Base
         }
                 
         return aliasCreateResponse::make([
-            "tracker"    => $paymentIntent->payment_method,
+            "tracker"    => $paymentMethodId,
             "adata"      => $paymentMethodDetails,
             "expires_at" => $expires_at,
             "confirmed"  => true
         ]);
         
-        return [ 'payment_method' => $paymentIntent->payment_method, 'payment_method_options' => $options ];
+        return [ 'payment_method' => $paymentMethodId, 'payment_method_options' => $options ];
     }
 
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = []): bool
@@ -304,7 +322,7 @@ class Stripe extends Base
         if (!empty($setupFutureUsage)) {
             $paymentIntentData['setup_future_usage'] = $setupFutureUsage;
         }
-       
+        
         // Crea il payment intent:
         try {
             $paymentIntent = $this->_getClient()->paymentIntents->create($paymentIntentData);
@@ -368,6 +386,26 @@ class Stripe extends Base
             $setupIntent = $this->_getClient()->setupIntents->create($setupIntentData);
         } catch (\Exception $ex) {
             $this->log("ERROR", "Stripe PYM Engine - Setup Intents creation error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
+            return null;
+        }
+        
+        return $setupIntent;
+    }
+    
+    
+    /**
+     * Prende un setup_intent da Stripe.
+     *
+     * @param string $setupIntentId
+     *
+     * @return \Stripe\SetupIntent|null
+     */
+    public function getSetupIntent($setupIntentId)
+    {
+        try {
+            $setupIntent = $this->_getClient()->setupIntents->retrieve($setupIntentId);
+        } catch (\Exception $ex) {
+            $this->log("ERROR", "Stripe PYM Engine - Setup Intents retrieving error.", $ex->getMessage() . "\n\n" . $ex->getTraceAsString());
             return null;
         }
         
@@ -698,7 +736,13 @@ class Stripe extends Base
                 /**
                  * "payment_intent.payment_failed": pagamento non andato a buon fine
                  */
-                // TODO...
+                                
+                /**
+                 * @var \Stripe\PaymentIntent $paymentIntent
+                 */
+                $paymentIntent = $event->data->object;
+                
+                $this->_webhookPaymentIntentFailed($paymentIntent);
                 break;
                 
             case \Stripe\Event::CHARGE_DISPUTE_CREATED:
@@ -716,7 +760,37 @@ class Stripe extends Base
                 break;
                 
             case \Stripe\Event::MANDATE_UPDATED:
-                // TODO...
+                /**
+                 * "mandate.updated": mandato di pagamento modificato
+                 */
+                
+                /**
+                 * @var \Stripe\Mandate $mandate
+                 */
+                $mandate = $event->data->object;
+                
+                // Stato del mandato:
+                $status = $mandate->status;
+                                
+                // Se il mandato è cancellato, cancella il metodo di pagamento:
+                if ($mandate->status == 'inactive') {
+                    $this->_deletePaymentMethod($mandate->payment_method);
+                }
+                break;
+                
+            case \Stripe\Event::PAYMENT_METHOD_DETACHED:
+                /**
+                 * payment_method.detached: metodo di pagamento "staccato"
+                 */
+                
+                // Questo evento può avvenire quando ad es. una carta di credito è staccata su Stripe.
+                
+                /**
+                 * @var \Stripe\PaymentMethod $paymentMethod
+                 */
+                $paymentMethod = $event->data->object;
+                
+                $this->_deletePaymentMethod($paymentMethod);                
                 break;
                 
             case \Stripe\Event::CUSTOMER_DELETED:
@@ -810,6 +884,36 @@ class Stripe extends Base
     
     
     /**
+     * Pagamento rifiurtato.
+     *
+     * @param \Stripe\PaymentIntent $paymentIntent
+     *
+     * @return boolean
+     */
+    protected function _webhookPaymentIntentFailed(\Stripe\PaymentIntent $paymentIntent)
+    {
+        // Cerca il pagamento:
+        $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
+            return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();
+        }, 1500, 30000);
+            
+        // Se non lo trova lo segnala:
+        if (null == $payment) {
+            $this->log("NOTICE", "[WB] 'payment_intent.failed': suitable payment not found!", $paymentIntent, ['performer' => $this->performer, 'paymentIntentId' => $paymentIntent->id]);
+            return false;
+        }
+        
+        // Pagamento trovato:
+        $this->log("DEBUG", "[WB] 'payment_intent.failed': found payment #" . $payment->getKey() . "...", $paymentIntent, ["py" => $payment]);
+                
+        // Scatena un evento di pagamento rigettato:
+        event(new \Mantonio84\pymMagicBox\Events\Payment\Rejected($this->merchant_id, $payment));
+        
+        return true;
+    }
+    
+    
+    /**
      * Un utente è stato cancellato da Stripe.
      * 
      * @param \Stripe\Customer $customer
@@ -840,5 +944,27 @@ class Stripe extends Base
                     $this->aliasDelete($pmbAlias);
                 }
             });
+    }
+    
+    
+    /**
+     * Metodo di pagamento cancellato su Stripe.
+     * 
+     * @param \Stripe\PaymentMethod $paymentMethod
+     * 
+     * @return boolean
+     */
+    protected function _deletePaymentMethod(\Stripe\PaymentMethod $paymentMethod)
+    {
+        // Aspetta alcuni secondi per evitare loop:
+        sleep(3);
+                
+        // Cancella i metodi di pagamento salvati associati a quell'utente Stripe:
+        $alias = PmbAlias::where('tracker', $paymentMethod->id)->first();
+                
+        // Lo cancella:
+        if (null != $alias && !$alias->trashed()) {
+            $this->aliasDelete($alias);
+        }
     }
 }
