@@ -756,7 +756,13 @@ class Stripe extends Base
                 /**
                  * "charge.dispute.closed": contestazione persa
                  */
-                // TODO...
+                                
+                /**
+                 * @var \Stripe\Dispute $dispute
+                 */
+                $dispute = $event->data->object;
+                
+                $this->_webhookChargeDisputeClosed($dispute);                
                 break;
                 
             case \Stripe\Event::MANDATE_UPDATED:
@@ -780,7 +786,7 @@ class Stripe extends Base
                 
             case \Stripe\Event::PAYMENT_METHOD_DETACHED:
                 /**
-                 * payment_method.detached: metodo di pagamento "staccato"
+                 * "payment_method.detached": metodo di pagamento "staccato"
                  */
                 
                 // Questo evento può avvenire quando ad es. una carta di credito è staccata su Stripe.
@@ -794,6 +800,10 @@ class Stripe extends Base
                 break;
                 
             case \Stripe\Event::CUSTOMER_DELETED:
+                /**
+                 * "customer.deleted": cliente cancellato
+                 */
+                
                 /**
                  * @var \Stripe\Customer $customer
                  */
@@ -884,7 +894,7 @@ class Stripe extends Base
     
     
     /**
-     * Pagamento rifiurtato.
+     * Pagamento rifiutato.
      *
      * @param \Stripe\PaymentIntent $paymentIntent
      *
@@ -908,6 +918,43 @@ class Stripe extends Base
                 
         // Scatena un evento di pagamento rigettato:
         event(new \Mantonio84\pymMagicBox\Events\Payment\Rejected($this->merchant_id, $payment));
+        
+        return true;
+    }
+    
+    
+    /**
+     * Disputa conclusa.
+     *
+     * @param \Stripe\Dispute $dispute
+     *
+     * @return boolean
+     */
+    protected function _webhookChargeDisputeClosed(\Stripe\Dispute $dispute)
+    {
+        // La disputa non si è conclusa con uno storno:
+        if ($dispute->status != \Stripe\Dispute::STATUS_LOST) {
+            $this->log("DEBUG", "[WB] 'charge.dispute_closed': dispute closed with status " . $dispute->status . "... Payment not refunded.");
+            return true;
+        }
+        
+        // Payment intent:
+        $paymentIntent = $dispute->payment_intent;
+        
+        // Cerca il pagamento:
+        $payment = pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent)->first();
+            
+        // Se non lo trova lo segnala:
+        if (null == $payment) {
+            $this->log("NOTICE", "[WB] 'charge.dispute_closed': suitable payment not found!", $paymentIntent, ['performer' => $this->performer, 'paymentIntentId' => $paymentIntent->id]);
+            return false;
+        }
+        
+        // Pagamento trovato:
+        $this->log("DEBUG", "[WB] 'charge.dispute_closed': found payment #" . $payment->getKey() . "...", $paymentIntent, ["py" => $payment]);
+        
+        // Scatena un evento di disputa persa:
+        event(new \Mantonio84\pymMagicBox\Events\Payment\DisputeLost($this->merchant_id, $payment));
         
         return true;
     }
