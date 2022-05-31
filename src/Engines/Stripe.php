@@ -866,7 +866,7 @@ class Stripe extends Base
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
             return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();            
-        }, 1500, 30000);
+        }, 1000, 15000);
                
         // Se non lo trova lo segnala:
         if (null == $payment) {
@@ -905,7 +905,7 @@ class Stripe extends Base
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
             return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();
-        }, 1500, 30000);
+        }, 1000, 15000);
             
         // Se non lo trova lo segnala:
         if (null == $payment) {
