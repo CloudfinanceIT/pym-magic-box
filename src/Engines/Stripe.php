@@ -256,12 +256,14 @@ class Stripe extends Base
         // Log dell'evento:
         $this->log("INFO", "[WB] Stripe webhook event", [  'object' => $event->object, 'id' => $event->id, 'type' => $event->type, 'account' => $event->account, 'api_version' => $event->api_version, 'created' => $event->created, 'data' => $event->data->toArray() ]);
         
-        $managed = $this->_processWebhookEvent($event);
-        if (false === $managed) {
+        $result = $this->_processWebhookEvent($event);
+        if (null === $result) {
             return null;
+        } elseif (false === $result) {
+            return response("nok");
         }
         
-        return response("ok.");
+        return response("ok");
     }
     
     
@@ -729,7 +731,7 @@ class Stripe extends Base
                  */
                 $paymentIntent = $event->data->object;      
                 
-                $this->_webhookPaymentIntentSucceeded($paymentIntent);
+                return $this->_webhookPaymentIntentSucceeded($paymentIntent);
                 break;
                     
             case \Stripe\Event::PAYMENT_INTENT_PAYMENT_FAILED:
@@ -742,7 +744,7 @@ class Stripe extends Base
                  */
                 $paymentIntent = $event->data->object;
                 
-                $this->_webhookPaymentIntentFailed($paymentIntent);
+                return $this->_webhookPaymentIntentFailed($paymentIntent);
                 break;
                 
             case \Stripe\Event::CHARGE_DISPUTE_CREATED:
@@ -762,7 +764,7 @@ class Stripe extends Base
                  */
                 $dispute = $event->data->object;
                 
-                $this->_webhookChargeDisputeClosed($dispute);                
+                return $this->_webhookChargeDisputeClosed($dispute);                
                 break;
                 
             case \Stripe\Event::MANDATE_UPDATED:
@@ -780,8 +782,10 @@ class Stripe extends Base
                                 
                 // Se il mandato è cancellato, cancella il metodo di pagamento:
                 if ($mandate->status == 'inactive') {
-                    $this->_deletePaymentMethod($mandate->payment_method);
+                    return $this->_deletePaymentMethod($mandate->payment_method);
                 }
+                
+                return true;
                 break;
                 
             case \Stripe\Event::PAYMENT_METHOD_DETACHED:
@@ -796,7 +800,7 @@ class Stripe extends Base
                  */
                 $paymentMethod = $event->data->object;
                 
-                $this->_deletePaymentMethod($paymentMethod);                
+                return $this->_deletePaymentMethod($paymentMethod);                
                 break;
                 
             case \Stripe\Event::CUSTOMER_DELETED:
@@ -809,15 +813,14 @@ class Stripe extends Base
                  */
                 $customer = $event->data->object;
                 
-                $this->_webhookCustomerDeleted($customer);
+                return $this->_webhookCustomerDeleted($customer);
                 break;
                     
             default:
-                return false;
                 break;
         }
         
-        return true;
+        return null;
     }
     
     
@@ -866,7 +869,7 @@ class Stripe extends Base
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
             return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();            
-        }, 1000, 15000);
+        }, 500, 2500);
                
         // Se non lo trova lo segnala:
         if (null == $payment) {
@@ -905,7 +908,7 @@ class Stripe extends Base
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
             return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();
-        }, 1000, 15000);
+        }, 500, 2500);
             
         // Se non lo trova lo segnala:
         if (null == $payment) {
@@ -991,6 +994,8 @@ class Stripe extends Base
                     $this->aliasDelete($pmbAlias);
                 }
             });
+            
+        return true;
     }
     
     
@@ -1013,5 +1018,7 @@ class Stripe extends Base
         if (null != $alias && !$alias->trashed()) {
             $this->aliasDelete($alias);
         }
+        
+        return true;
     }
 }
