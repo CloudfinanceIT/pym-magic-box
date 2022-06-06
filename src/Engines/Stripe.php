@@ -267,12 +267,12 @@ class Stripe extends Base
         
         $result = $this->_processWebhookEvent($event);
         if (null === $result) {
-            return null;
+            return response("Webhook not implemented!");
         } elseif (false === $result) {
-            return response("nok");
+            return response("Error");
         }
         
-        return response("ok");
+        return response("Ok");
     }
     
     
