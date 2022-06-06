@@ -40,7 +40,7 @@ class Stripe extends Base
     protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = []): bool
     {
         // Recupera il payment intent:
-        $paymentIntent = $this->getPaymentIntent($payment->transaction_ref);
+        $paymentIntent = $this->getPaymentIntent($payment->tracker);
         
         // Il pagamento è confermato solo se il paymentIntent ha stato SUCCEEDED:
         return ($paymentIntent && $paymentIntent->status == PaymentIntent::STATUS_SUCCEEDED);
@@ -126,7 +126,7 @@ class Stripe extends Base
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = []): bool
     {        
         // Emette un rimborso su Stripe:
-        $refund = $this->createRefund($payment->transaction_ref, $payment->amount, $payment->currency_code);
+        $refund = $this->createRefund($payment->tracker, $payment->amount, $payment->currency_code);
         if (null != $refund) {
             $this->registerARefund($payment, $amount, $refund->id, $refund);
             return true;
@@ -204,6 +204,9 @@ class Stripe extends Base
         $billed = false;
         $confirmed = false;
         
+        // Id della transazione:
+        $balanceTransactionId = null;
+        
         if ($paymentIntent) {
             if ($paymentIntent->status == PaymentIntent::STATUS_PROCESSING) {
                 $billed = true;                
@@ -211,13 +214,19 @@ class Stripe extends Base
                 $billed = true;  
                 $confirmed = true;
             }
+            
+            // Prima "charge" associata:
+            $charge = $paymentIntent->charges->first();
+            
+            // Id della transazione:
+            $balanceTransactionId = $charge->balance_transaction;
         }
         
         return processPaymentResponse::make([
             "billed"        => $billed,
             "confirmed"     => $confirmed,
-            "tracker"       => $paymentIntent->id,
-            "transaction_ref" => $paymentIntent->id,
+            "tracker"       => optional($paymentIntent)->id,
+            "transaction_ref" => $balanceTransactionId,
             "other_data"    => []
         ]);  
     }
@@ -868,7 +877,7 @@ class Stripe extends Base
     {   
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
-            return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();            
+            return pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent->id)->first();            
         }, 1000, 7500);
                
         // Se non lo trova lo segnala:
@@ -907,7 +916,7 @@ class Stripe extends Base
     {
         // Cerca il pagamento:
         $payment = $this->_callUntilNotNull(function() use ($paymentIntent) {
-            return pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent->id)->first();
+            return pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent->id)->first();
         }, 1000, 7500);
             
         // Se non lo trova lo segnala:
@@ -945,7 +954,7 @@ class Stripe extends Base
         $paymentIntent = $dispute->payment_intent;
         
         // Cerca il pagamento:
-        $payment = pmbPayment::ofPerformers($this->performer)->billed()->where("transaction_ref", $paymentIntent)->first();
+        $payment = pmbPayment::ofPerformers($this->performer)->billed()->where("tracker", $paymentIntent)->first();
             
         // Se non lo trova lo segnala:
         if (null == $payment) {
