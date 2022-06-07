@@ -43,7 +43,19 @@ class Stripe extends Base
         $paymentIntent = $this->getPaymentIntent($payment->tracker);
         
         // Il pagamento è confermato solo se il paymentIntent ha stato SUCCEEDED:
-        return ($paymentIntent && $paymentIntent->status == PaymentIntent::STATUS_SUCCEEDED);
+        if ($paymentIntent && $paymentIntent->status == PaymentIntent::STATUS_SUCCEEDED) {
+            // Id della transazione:
+            $balanceTransactionId = $this->_getPaymentIntentBalanceTransaction($paymentIntent);
+            
+            // Salva l'id della transazione nel pagamento:
+            if (!empty($balanceTransactionId)) {
+                $payment->transaction_ref = $balanceTransactionId;
+            }
+                     
+            return true;
+        }
+        
+        return false;
     }
 
     protected function onProcessAliasDelete(pmbAlias $alias): bool
@@ -215,23 +227,37 @@ class Stripe extends Base
                 $confirmed = true;
             }
             
-            // Prima "charge" associata:
-            $charge = $paymentIntent->charges->first();
-            
             // Id della transazione:
-            $balanceTransactionId = $charge->balance_transaction;
+            $balanceTransactionId = $this->_getPaymentIntentBalanceTransaction($paymentIntent);
         }
         
         return processPaymentResponse::make([
             "billed"        => $billed,
             "confirmed"     => $confirmed,
             "tracker"       => optional($paymentIntent)->id,
-            "transaction_ref" => $balanceTransactionId,
+            "transaction_ref" => $balanceTransactionId ?? '-',
             "other_data"    => []
         ]);  
     }
     
 
+    /**
+     * Ottiene l'id della transazione dal paymentIntent.
+     * 
+     * @param PaymentIntent $paymentIntent
+     * 
+     * @return string|null
+     */
+    protected function _getPaymentIntentBalanceTransaction(PaymentIntent $paymentIntent)
+    {
+        // Prima "charge" associata:
+        $charge = $paymentIntent->charges->first();
+        
+        // Id della transazione:
+        return optional($charge)->balance_transaction; 
+    }
+    
+    
     public function isRefundable(pmbPayment $payment): float
     {
         if (!$payment->billed && !$payment->confirmed) {
