@@ -812,9 +812,6 @@ class Stripe extends Base
                  */
                 $mandate = $event->data->object;
                 
-                // Stato del mandato:
-                $status = $mandate->status;
-                                
                 // Se il mandato è cancellato, cancella il metodo di pagamento:
                 if ($mandate->status == 'inactive') {
                     return $this->_deletePaymentMethod($mandate->payment_method);
@@ -835,7 +832,7 @@ class Stripe extends Base
                  */
                 $paymentMethod = $event->data->object;
                 
-                return $this->_deletePaymentMethod($paymentMethod);                
+                return $this->_deletePaymentMethod($paymentMethod->id);                
                 break;
                 
             case \Stripe\Event::CUSTOMER_DELETED:
@@ -1037,17 +1034,17 @@ class Stripe extends Base
     /**
      * Metodo di pagamento cancellato su Stripe.
      * 
-     * @param \Stripe\PaymentMethod $paymentMethod
+     * @param string $paymentMethodId
      * 
      * @return boolean
      */
-    protected function _deletePaymentMethod(\Stripe\PaymentMethod $paymentMethod)
+    protected function _deletePaymentMethod(string $paymentMethodId)
     {
         // Aspetta alcuni secondi per evitare loop:
         sleep(3);
                 
         // Cancella i metodi di pagamento salvati associati a quell'utente Stripe:
-        $alias = PmbAlias::where('tracker', $paymentMethod->id)->first();
+        $alias = PmbAlias::where('tracker', $paymentMethodId)->first();
                 
         // Lo cancella:
         if (null != $alias && !$alias->trashed()) {
