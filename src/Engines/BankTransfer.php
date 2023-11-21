@@ -280,11 +280,17 @@ class BankTransfer extends Base {
             return "";
         }
         $arr_str = json_decode(json_encode($result), true);
-
+		$errorMessage = Arr::get($arr_str, "OCRWSResponse.errorMessage");
+		if (!empty($errorMessage)){
+			$this->log("ERROR", ":::BankTransferReceiptPDFValidator::: remote ocr error ".$errorMessage); 	
+			return "";			
+		}
         if (!isset($arr_str['OCRWSResponse']['ocrText']['ArrayOfString'])) {
+			$this->log("ERROR", ":::BankTransferReceiptPDFValidator::: remote ocr response error: ArrayOfString not found!");
             return "";
         }
         if (!is_array($arr_str['OCRWSResponse']['ocrText']['ArrayOfString'])) {
+			$this->log("ERROR", ":::BankTransferReceiptPDFValidator::: remote ocr response error: ArrayOfString is not valid!");
             return "";
         }
 
