@@ -138,7 +138,7 @@ class Stripe extends Base
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = []): bool
     {        
         // Emette un rimborso su Stripe:
-        $refund = $this->createRefund($payment->tracker, $payment->amount, $payment->currency_code);
+        $refund = $this->createRefund($payment->tracker, $amount, $payment->currency_code);
         if (null != $refund) {
             $this->registerARefund($payment, $amount, $refund->id, $refund);
             return true;
