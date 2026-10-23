@@ -12,7 +12,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
     public $options=[];
     protected $rules=false;   
     protected $logdata=[];    
-    protected $methods=["get","delete","head","options","path","post","put"];
+    protected $methods=["get","delete","head","options","patch","post","put"];
     
     public static function make(string $merchant_id, string $base_uri, $options=null){
         return new static($merchant_id, $base_uri, $options);
@@ -45,11 +45,11 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
     public function getEndPointURL(string $uri=""){        
         $bs=$this->base_uri;
         if (Str::endsWith($bs, "/")){
-            $bs=substr($bs,-1);
+            $bs=substr($bs, 0, -1);
         }
         if (!empty($uri)){
             if (Str::endsWith($uri, "/")){
-                $uri=substr($uri,-1);
+                $uri=substr($uri, 0, -1);
             }      
             $bs.=Str::start($uri,"/");
         }        
@@ -58,7 +58,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
     
     public function request(string $method, string $uri, array $data, array $headers = []){      
         if (!in_array(strtolower($method),$this->methods)){
-            throw httpClientException::make("Invalid request method '$method'!")->loggable("WARNING", $merchant_id);
+            throw httpClientException::make("Invalid request method '$method'!")->loggable("WARNING", $this->merchant_id);
             return false;
         }
         $pid=uniqid();
@@ -71,7 +71,7 @@ class HttpClient extends \Mantonio84\pymMagicBox\Base {
         $statusCode=$response->getStatusCode();        
         $lgs="[$pid] $method RESPONSE FROM ".$this->getEndPointURL($uri)." (".$statusCode.")";
         $rawResponse=(string) $response->getBody();        
-        if ($statusCode!=200){            
+        if ($statusCode < 200 || $statusCode >= 300){            
             throw httpClientException::make($lgs)->loggable("CRITICAL",$this->merchant_id,["details" => $rawResponse]);
             return false;
         }

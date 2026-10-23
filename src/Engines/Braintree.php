@@ -79,9 +79,12 @@ class Braintree extends Base {
     }
 
     protected function onProcessPaymentConfirm(pmbPayment $payment, array $data = array()): bool {
-		$transaction=isset($data['_btt_']) ? optional($data['_btt_']) : $this->getRemoteTransaction($payment);
-		$payment->other_data=$transaction->jsonSerialize();
-        return ($transaction->status=="SETTLED");
+		$transaction=isset($data['_btt_']) ? $data['_btt_'] : $this->getRemoteTransaction($payment);
+        if (!$transaction) {
+            return false;
+        }
+        $payment->other_data = $transaction->jsonSerialize();
+        return ($transaction->status == "SETTLED");
     }
 
     protected function onProcessRefund(pmbPayment $payment, float $amount, array $data = array()): bool {
@@ -178,7 +181,7 @@ class Braintree extends Base {
 	}
 	
 	protected function refundViaWebhook($transactionId, $refundTransactionId, $amount, $webhookNotification, $reason, $refundDetails=""){
-		$webhookNotificationKind=$$webhookNotification->kind;
+		$webhookNotificationKind=$webhookNotification->kind;
 		$payment=pmbPayment::ofPerformers($this->performer)->billed()->where("tracker",$transactionId)->first();
 		if (is_null($payment)){
 			$this->log("ERROR", "Webhook refund $webhookNotificationKind failed: suitable payment not found!",$webhookNotification);		
@@ -218,7 +221,7 @@ class Braintree extends Base {
     }
 	
 	protected function getRemoteTransaction(pmbPayment $payment){		
-		return optional($this->request("transaction", "find", [$payment->transaction_ref], true));   				
+		return $this->request("transaction", "find", [$payment->transaction_ref], true);   				
 	}
     
     protected function withBaseData(array $data=[]){
@@ -251,7 +254,7 @@ class Braintree extends Base {
         $gateway=$this->gateway()->{$gateway_name}();
 		try {
 			$result=call_user_func_array([$gateway,$gateway_function], $args);
-		}catch (Exception $e){
+		}catch (\Throwable $e){
 			$this->log($suppress_error ? "WARNING" : "CRITICAL", "[$pid] Gateway exception: ".$e->getMessage());
 			if ($suppress_error){				
 				return null;
@@ -262,10 +265,10 @@ class Braintree extends Base {
         
         if ($result instanceof \Braintree\Result\Error){
 			if ($suppress_error){
-				$this->log("WARNING", "[$pid] Gateway error".isset($result->message) ? ": ".$result->message : "");
+				$this->log("WARNING", "[$pid] Gateway error".(isset($result->message) ? ": ".$result->message : ""));
 				return null;
 			}else{
-				return $this->throwAnError("[$pid] Gateway error".isset($result->message) ? ": ".$result->message : "","CRITIAL",$result);
+				return $this->throwAnError("[$pid] Gateway error".(isset($result->message) ? ": ".$result->message : ""),"CRITIAL",$result);
 			}
         }
         $this->log("DEBUG","[$pid] Gateway success response",$result);        

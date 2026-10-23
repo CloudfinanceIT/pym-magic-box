@@ -56,7 +56,7 @@ class Alias extends BaseOnModel implements Responsable {
     protected function searchModel($ref) 
     {
         $q=pmbAlias::merchant($this->merchant_id)->notExpired();
-        if (is_int($ref) || ctype_digit($ref)){
+        if (is_int($ref) || (is_string($ref) && ctype_digit($ref))){
             return $q->where("id",intval($ref))->first();
         }else if (is_string($ref) && !empty($ref)){
             return $q->where("name",$ref)->first();

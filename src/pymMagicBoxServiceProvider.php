@@ -4,6 +4,7 @@ namespace Mantonio84\pymMagicBox;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 class pymMagicBoxServiceProvider extends ServiceProvider {
 
@@ -13,7 +14,7 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
      * @return void
      */
     public function boot() {			
-        \Route::bind("pymMagicBoxPayment", function ($value) {                
+        Route::bind("pymMagicBoxPayment", function ($value) {                
             $a=explode("-",$value);
             if (count($a)==6){
                     $ref=intval($a[5]);
@@ -24,7 +25,7 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
                     }
             }
         });
-       \Route::bind("pymMagicBoxAlias", function ($value) {                
+       Route::bind("pymMagicBoxAlias", function ($value) {                
             $a=explode("-",$value);
             if (count($a)==6){
                     $ref=intval($a[5]);
@@ -40,7 +41,7 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
 			$IPAddress=$this->ip();
 			if (config("app.env")=="local" && !filter_var($IPAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE ) ){
 				if (!\Cache::has("external_ip")){
-					$realIP = file_get_contents("http://ipecho.net/plain");
+					$realIP = @file_get_contents("https://api.ipify.org", false, stream_context_create(["http" => ["timeout" => 3]]));
 					if (filter_var($realIP,FILTER_VALIDATE_IP)){
 						\Cache::put("external_ip",$realIP,now()->addHour());
 						return $realIP;
@@ -93,9 +94,9 @@ class pymMagicBoxServiceProvider extends ServiceProvider {
 *
      * @return void
      */
-    public function register() {
-
-      
+    public function register()
+    {
+        $this->mergeConfigFrom(__DIR__.'/Config/pymMagicBox.php', 'pymMagicBox');
     }
 
 }

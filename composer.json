@@ -1,29 +1,33 @@
 {
-	"name" : "CloudfinanceIT/pym-magic-box",
-	"description" : "Gateway di pagamento per Laravel con supporto metodi di pagamento multipli",
-	"require" : {
-		"php" : "^7.2.0",
-		"guzzlehttp/guzzle" : ">=6.5",
-		"cmpayments/iban" : "^1.1",
-		"braintree/braintree_php" : "^5.4",
-		"smalot/pdfparser" : "^1.1",
-		"stripe/stripe-php": "^7.125"
-	},
-	"autoload" : {
-		"psr-4" : {
-			"Mantonio84\\pymMagicBox\\" : "src/"
-		}
-	},
-	"extra" : {
-		"laravel" : {
-			"providers" : [
-				"Mantonio84\\pymMagicBox\\pymMagicBoxServiceProvider"
-			],
-			"aliases" : {
-				"pymMagicBoxAlias" : "Mantonio84\\pymMagicBox\\Alias",
-				"pymMagicBoxGateway" : "Mantonio84\\pymMagicBox\\Gateway",
-				"pymMagicBoxPayment" : "Mantonio84\\pymMagicBox\\Payment"
-			}
-		}
-	}
+    "name": "cloudfinanceit/pym-magic-box",
+    "description": "Gateway di pagamento per Laravel con supporto metodi di pagamento multipli",
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^9.0",
+        "illuminate/database": "^9.0",
+        "illuminate/routing": "^9.0",
+        "illuminate/validation": "^9.0",
+        "guzzlehttp/guzzle": "^7.8",
+        "cmpayments/iban": "^1.1",
+        "braintree/braintree_php": "^6.0",
+        "smalot/pdfparser": "^2.13",
+        "stripe/stripe-php": "^7.125"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mantonio84\\pymMagicBox\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Mantonio84\\pymMagicBox\\pymMagicBoxServiceProvider"
+            ],
+            "aliases": {
+                "pymMagicBoxAlias": "Mantonio84\\pymMagicBox\\Alias",
+                "pymMagicBoxGateway": "Mantonio84\\pymMagicBox\\Gateway",
+                "pymMagicBoxPayment": "Mantonio84\\pymMagicBox\\Payment"
+            }
+        }
+    }
 }

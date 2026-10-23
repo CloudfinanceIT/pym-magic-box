@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
-use DB;
+use Illuminate\Support\Facades\DB;
 
 class PymMagicBoxDummyMethodSeeder extends Seeder
 {
@@ -20,8 +20,7 @@ class PymMagicBoxDummyMethodSeeder extends Seeder
             "created_at" => $now,
             "updated_at" => $now,
             "name" => "dummy",
-            "engine" => "Dummy",
-            "auto" => 1
+            "engine" => "Dummy"
         ]);
         DB::table("pmb_performers")->insert([
             "created_at" => $now,

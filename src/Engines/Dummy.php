@@ -57,7 +57,7 @@ class Dummy extends Base {
     }
     
     public function isConfirmable(pmbPayment $payment): bool {
-        return $payment->billed && !$payment->confirmed && !$payment->refuned;
+        return $payment->billed && !$payment->confirmed && !$payment->refunded;
     }
 
     protected function onProcessAliasConfirm(pmbAlias $alias, array $data = array()): bool {

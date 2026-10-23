@@ -12,7 +12,7 @@ abstract class pmbBaseWithPerformer extends pmbBase {
         public function scopeOfPerformers($query, $v){
             if (is_array($v)){
                 return $query->whereIn("performer_id",array_map("intval",$v));
-            }else if (is_int($v) || ctype_digit($v)){
+            }else if (is_int($v) || (is_string($v) && ctype_digit($v))){
                 return $query->where("performer_id",intval($v));
             }else if ($v instanceof pmbPerformer){
                 return $query->where("performer_id",$v->getKey());

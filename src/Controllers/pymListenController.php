@@ -1,14 +1,14 @@
 <?php
 namespace Mantonio84\pymMagicBox\Controllers;
 
-use \App\Http\Controllers\Controller;
+use Illuminate\Routing\Controller;
 use \Illuminate\Http\Request;
 use \Mantonio84\pymMagicBox\Gateway;
 use \Illuminate\Support\Str;
 use \Mantonio84\pymMagicBox\Models\pmbMethod;
 use \Mantonio84\pymMagicBox\Models\pmbPerformer;
 use \Mantonio84\pymMagicBox\Logger as pmbLogger;
-use \Illuminate\Http\Response;
+use Symfony\Component\HttpFoundation\Response;
 
 class pymListenController extends Controller
 {   
@@ -37,7 +37,7 @@ class pymListenController extends Controller
 		pmbLogger::info($merchant,["message" => "[WB] Incoming request for '$method'","details" => $request->all()]);	
 		$engine=Gateway::of($merchant)->build($method);
 		if (is_null($engine)){
-			pmbLogger::error($merchant,["message" => "[WB] Reject: engine not found!","details" => $request->all(), "pe" => $engine->getPerformer()]);
+			pmbLogger::error($merchant,["message" => "[WB] Reject: engine not found!","details" => $request->all(), "me" => $method]);
 			return abort(404);
 		}
 		if (!$engine->canRun("webhook")){

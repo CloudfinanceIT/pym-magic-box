@@ -24,7 +24,7 @@ class GrantMethod extends Command
         $method=null;
         $m=$this->argument("method");
         
-        if (is_int($m) || ctype_digit($m)){
+        if (is_int($m) || (is_string($m) && ctype_digit($m))){
             $method=pmbMethod::find(intval($m));
         }else if (is_string($m) && !empty($m)){
             $method=pmbMethod::where("name",$m)->first();

@@ -44,7 +44,7 @@ class Logger {
 		}
 	}
 
-	public function reportAnException(\Exception $e, $level, $merchant_id, array $params=[]){
+	public function reportAnException(\Throwable $e, $level, $merchant_id, array $params=[]){
 		if ($e instanceof pymMagicBoxException){
 			return $e->loggable($level, $merchant_id, $params);
 		}else{
@@ -68,7 +68,7 @@ class Logger {
 		if ($ml===false){
 			return null;
 		}						
-		if (is_int($level) || ctype_digit($level)){
+		if (is_int($level) || (is_string($level) && ctype_digit($level))){
 			$level=intval($level);
 			if ($level<0 || $level>count(static::$levels)-1){
 				$level=0;
@@ -82,7 +82,12 @@ class Logger {
 			$level=0;
 		}		
 		
-		$minLevel=intval(array_search(intval($ml),static::$levels));
+        if (is_string($ml)) {
+            $foundLevel = array_search(strtoupper($ml), static::$levels, true);
+            $minLevel = $foundLevel === false ? 0 : $foundLevel;
+        } else {
+            $minLevel = is_numeric($ml) ? max(0, min(count(static::$levels) - 1, (int) $ml)) : 0;
+        }
 		
 		if ($minLevel>$level) {
 			return null;
@@ -118,24 +123,28 @@ class Logger {
 		return $a;
 	}
 	
-	public function rotate(bool $forced=false){		
-        if (!Cache::has("pymMagicBox.logRotatedAt") || ($forced)) {
-            $interval=config("pymMagicBox.log_rotation",false);
-            if (is_string($interval)) {
-                $interval=explode(" ",$interval);
-            }
-            if (is_array($interval) && count($interval)==2) {			
-                $when=now()->sub(...$interval);                    
-            } else if ($interval instanceof \Carbon\CarbonInterval) {
-                $when=now()->sub($interval);                    
-            }
-            if (isset($when) && isset($lwhen)){
-                pmbLog::where("created_at","<=",$when)->delete();
-                Cache::put("pymMagicBox.logRotatedAt",1,Carbon::tomorrow());
-            }
+    public function rotate(bool $forced = false)
+    {
+        if (!$forced && Cache::has('pymMagicBox.logRotatedAt')) {
+            return;
         }
-	}
-        
+
+        $interval = config('pymMagicBox.log_rotation', false);
+        if ($interval === false || $interval === null || $interval === '') {
+            return;
+        }
+
+        if (is_string($interval)) {
+            $interval = \Carbon\CarbonInterval::fromString($interval);
+        }
+        if (!$interval instanceof \Carbon\CarbonInterval) {
+            return;
+        }
+
+        pmbLog::where('created_at', '<=', now()->sub($interval))->delete();
+        Cache::put('pymMagicBox.logRotatedAt', 1, Carbon::tomorrow());
+    }
+
     protected function tryJsonEncode($items, $default=null){
         if (is_string($items)){
             return $items;

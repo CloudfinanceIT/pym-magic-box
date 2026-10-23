@@ -101,7 +101,7 @@ class Engine extends Base implements pmbLoggable {
 			}
 			try {
 				$ret=call_user_func_array([$this->managed,$method],$params);
-			}catch (\Exception $e) {
+			}catch (\Throwable $e) {
 				throw pmbLogger::make()->reportAnException($e,"EMERGENCY",$this->merchant_id,array_merge($arguments,["performer" => $this->managed->performer]));	                                
 			}
 			if ($ret instanceof pmbAlias){
@@ -127,28 +127,27 @@ class Engine extends Base implements pmbLoggable {
             throw invalidCurrencyCodeException::make("Invalid default currency code '$defaultCurrencyCode'!")->loggable("EMERGENCY",$this->merchant_id,["pe" => $this->performer]);
             return null;
         }
-        if (is_float($w) || is_int($w) || ctype_digit($w)){
+        if (is_float($w) || is_int($w) || (is_string($w) && is_numeric($w))){
             $ret=array(floatval($w), $defaultCurrencyCode);
         }else if (is_string($w)){
             $ret=explode(" ",$w,2);
         }else if (is_array($w)){
             $ret=$w;
         }
-        $ret[1]=strtoupper($ret[1]);
         if (!is_array($ret)){
-            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+            throw invalidAmountException::make("Invalid amount given!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
             return null;
         }
-        if (count($ret)!=2){
-            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
-            return null;
+        if (count($ret) != 2 || !isset($ret[0], $ret[1]) || !is_string($ret[1])) {
+            throw invalidAmountException::make("Invalid amount given!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
         }
-        if (!is_float($ret[0]) && !is_int($ret[0]) && !ctype_digit($ret[0])){
-            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+        $ret[1] = strtoupper($ret[1]);
+        if (!is_numeric($ret[0])) {
+            throw invalidAmountException::make("Invalid amount given!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
             return null;
         }
         if ($ret[0]<=0){
-            throw invalidAmountException::make("Invalid amount given '$w'!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
+            throw invalidAmountException::make("Invalid amount given!")->loggable("CRITICAL",$this->merchant_id,["pe" => $this->performer]);
             return null;
         }
         if (!Currency::exists($ret[1])){
@@ -228,9 +227,12 @@ class Engine extends Base implements pmbLoggable {
         
     protected static function array_is_associative(array $arr) 
     {
+        if ($arr === []) {
+            return false;
+        }
 		$k = array_keys($arr);
 		$fk = reset($k);
-		if (!ctype_digit($fk) && !is_int($fk))
+		if (!is_int($fk) && !(is_string($fk) && ctype_digit($fk)))
 			return true;
 		$fk = intval($fk);                
 		return (range($fk, count($arr) - 1) != $k);

@@ -81,7 +81,7 @@ class Payment extends BaseOnModel implements Responsable {
             }
 
             $q=pmbPayment::merchant($this->merchant_id);
-            if (is_int($ref) || ctype_digit($ref)){
+            if (is_int($ref) || (is_string($ref) && ctype_digit($ref))){
                     return $q->where("id",intval($ref))->first();
             }else if (is_string($ref) && !empty($ref)) {
                     return $q->where("order_ref",$ref)->first();

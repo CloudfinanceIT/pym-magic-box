@@ -44,7 +44,7 @@ class Currency {
     }
     
     protected static function isValidCodeName($str){
-        return (preg_match('/[A-Z]{3}$/', $str)>0);
+        return (is_string($str) && preg_match('/^[A-Z]{3}$/D', $str)>0);
     }
     protected static function getDBPath($filename=""){
         $path=realpath(Str::finish(__DIR__,DIRECTORY_SEPARATOR).implode(DIRECTORY_SEPARATOR,["..","Resources","Currencies"]));                

@@ -1,6 +1,7 @@
 <?php
 
 return [
+    "http_client_options" => [],
     "default_currency_code" => "EUR", //Valuta di default per i pagamenti (ISO 4217)
 	"profiles" => [ //Settaggi e credenziali dei vari engines. Sotto common.{method_name} vanno i settaggi comuni a tutti i merchant, sotto {merchant_id}.{method_name} vanno i settaggi per ogni specifici per un merchant-method. {method_name} è sempre snake case.
 		"common" => [], 

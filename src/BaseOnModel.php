@@ -42,10 +42,17 @@ abstract class BaseOnModel extends Base implements pmbLoggable, Arrayable, Jsona
 		return $this->managed;
 	}
 	
-	public static function query()
-	{
-		return $this->managed->newQuery();
-	}
+    public static function query()
+    {
+        $properties = (new \ReflectionClass(static::class))->getDefaultProperties();
+        $modelClass = $properties['modelClassName'] ?? null;
+
+        if (!is_string($modelClass) || !is_subclass_of($modelClass, \Illuminate\Database\Eloquent\Model::class)) {
+            throw new \LogicException('No Eloquent model configured for '.static::class);
+        }
+
+        return $modelClass::query();
+    }
 	
 	public function getPmbLogData(): array
 	{
@@ -81,7 +88,7 @@ abstract class BaseOnModel extends Base implements pmbLoggable, Arrayable, Jsona
         return $this->managed->toJson($options);
     }
     
-    public function jsonSerialize()
+    public function jsonSerialize(): array
     {
         return $this->toArray();
     }

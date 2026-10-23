@@ -275,8 +275,8 @@ class BankTransfer extends Base {
 
         try {
             $result = $client->OCRWebServiceRecognize($params);
-        } catch (\SoapFault $fault) {            
-			pmbLogger::make()->reportAnException($ex,"ERROR",$this->merchant_id,["pe" => $this->performer, "py" => $payment]);
+        } catch (\SoapFault $fault) {
+            pmbLogger::make()->reportAnException($fault,"ERROR",$this->merchant_id,["pe" => $this->performer, "py" => $payment]);
             return "";
         }
         $arr_str = json_decode(json_encode($result), true);

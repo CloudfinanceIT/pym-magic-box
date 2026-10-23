@@ -322,7 +322,7 @@ abstract class Base
 	{
 		try {
 			$result=$this->{$funName}(...$args);
-		} catch (\Exception $e) {                                                			
+		} catch (\Throwable $e) {                                                			
 			throw pmbLogger::make()->reportAnException($e,"EMERGENCY",$this->merchant_id,array_merge($args,["performer" => $this->performer]));						
 		}
 		
